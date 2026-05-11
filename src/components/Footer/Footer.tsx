@@ -67,7 +67,7 @@ export default function Footer() {
             <svg className="footer__contact-icon" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
               <path d="M9.22 11.05a1 1 0 0 1 .81-.2 1 1 0 0 1 .37.15l.23.2a1.19 1.19 0 0 0 1.48.03 1.19 1.19 0 0 0 .38-.43l.24-.4a.83.83 0 0 0-.28-1.11L10.52 8.2a.83.83 0 0 0-1.17.31l-.24.4a.83.83 0 0 1-.62.37.83.83 0 0 1-.72-.24 11.09 11.09 0 0 1-2.85-3.83.67.67 0 0 1 .24-.86l.4-.24a.83.83 0 0 0 .31-1.17L5.63 1.5A.83.83 0 0 0 4.52 1.22l-.4.24A1.19 1.19 0 0 0 3.7 2.63a1.19 1.19 0 0 0 .03.48 11.09 11.09 0 0 0 5.49 7.94Z"/>
             </svg>
-            +254 712 345 678
+            +254 707 855 708
           </a>
           <a href="#" className="footer__link">
             <svg className="footer__contact-icon" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
