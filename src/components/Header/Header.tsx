@@ -174,7 +174,6 @@ export default function Header() {
               <span className="header__cart-label">Cart</span>
               {itemCount > 0 && <span className="header__cart-badge">{itemCount}</span>}
             </button>
-            <button className="header__login-btn">Login</button>
           </div>
         </div>
       </div>
