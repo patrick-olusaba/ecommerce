@@ -1,7 +1,7 @@
 export interface Product {
   id: number;
   name: string;
-  category: 'watches' | 'dresses' | 'pants' | 'blouses' | 'tshirts';
+  category: 'watches' | 'dresses' | 'pants' | 'blouses' | 'tshirts' | 'sweaters';
   price: number;
   originalPrice?: number;
   badge?: string;

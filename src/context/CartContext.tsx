@@ -1,4 +1,4 @@
-import { createContext, useContext, useReducer } from 'react';
+import { createContext, useContext, useReducer, useState, useRef } from 'react';
 import type { ReactNode } from 'react';
 import type { CartItem, Product } from '../types';
 
@@ -9,8 +9,8 @@ interface CartState {
 
 type CartAction =
   | { type: 'ADD_ITEM'; payload: { product: Product; size: string; color: string; quantity: number } }
-  | { type: 'REMOVE_ITEM'; payload: { productId: number } }
-  | { type: 'UPDATE_QUANTITY'; payload: { productId: number; quantity: number } }
+  | { type: 'REMOVE_ITEM'; payload: { productId: number; size: string; color: string } }
+  | { type: 'UPDATE_QUANTITY'; payload: { productId: number; size: string; color: string; quantity: number } }
   | { type: 'TOGGLE_CART' }
   | { type: 'CLOSE_CART' }
   | { type: 'CLEAR_CART' };
@@ -53,19 +53,24 @@ function cartReducer(state: CartState, action: CartAction): CartState {
       return { ...state, items: newItems, isOpen: true };
     }
     case 'REMOVE_ITEM': {
-      const newItems = state.items.filter((item) => item.product.id !== action.payload.productId);
+      const { productId, size, color } = action.payload;
+      const newItems = state.items.filter(
+        (item) => !(item.product.id === productId && item.size === size && item.color === color)
+      );
       saveCart(newItems);
       return { ...state, items: newItems };
     }
     case 'UPDATE_QUANTITY': {
-      const { productId, quantity } = action.payload;
+      const { productId, size, color, quantity } = action.payload;
+      const matches = (item: CartItem) =>
+        item.product.id === productId && item.size === size && item.color === color;
       if (quantity <= 0) {
-        const newItems = state.items.filter((item) => item.product.id !== productId);
+        const newItems = state.items.filter((item) => !matches(item));
         saveCart(newItems);
         return { ...state, items: newItems };
       }
       const newItems = state.items.map((item) =>
-        item.product.id === productId ? { ...item, quantity } : item
+        matches(item) ? { ...item, quantity } : item
       );
       saveCart(newItems);
       return { ...state, items: newItems };
@@ -87,9 +92,10 @@ interface CartContextType {
   isOpen: boolean;
   itemCount: number;
   total: number;
+  cartBounce: boolean;
   addItem: (product: Product, size: string, color: string, quantity: number) => void;
-  removeItem: (productId: number) => void;
-  updateQuantity: (productId: number, quantity: number) => void;
+  removeItem: (productId: number, size: string, color: string) => void;
+  updateQuantity: (productId: number, size: string, color: string, quantity: number) => void;
   toggleCart: () => void;
   closeCart: () => void;
   clearCart: () => void;
@@ -99,20 +105,30 @@ const CartContext = createContext<CartContextType | null>(null);
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(cartReducer, initialState);
+  const [cartBounce, setCartBounce] = useState(false);
+  const bounceTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const itemCount = state.items.reduce((sum, item) => sum + item.quantity, 0);
   const total = state.items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+
+  const addItem = (product: Product, size: string, color: string, quantity: number) => {
+    dispatch({ type: 'ADD_ITEM', payload: { product, size, color, quantity } });
+    setCartBounce(true);
+    if (bounceTimer.current) clearTimeout(bounceTimer.current);
+    bounceTimer.current = setTimeout(() => setCartBounce(false), 500);
+  };
 
   const value: CartContextType = {
     items: state.items,
     isOpen: state.isOpen,
     itemCount,
     total,
-    addItem: (product, size, color, quantity) =>
-      dispatch({ type: 'ADD_ITEM', payload: { product, size, color, quantity } }),
-    removeItem: (productId) => dispatch({ type: 'REMOVE_ITEM', payload: { productId } }),
-    updateQuantity: (productId, quantity) =>
-      dispatch({ type: 'UPDATE_QUANTITY', payload: { productId, quantity } }),
+    cartBounce,
+    addItem,
+    removeItem: (productId, size, color) =>
+      dispatch({ type: 'REMOVE_ITEM', payload: { productId, size, color } }),
+    updateQuantity: (productId, size, color, quantity) =>
+      dispatch({ type: 'UPDATE_QUANTITY', payload: { productId, size, color, quantity } }),
     toggleCart: () => dispatch({ type: 'TOGGLE_CART' }),
     closeCart: () => dispatch({ type: 'CLOSE_CART' }),
     clearCart: () => dispatch({ type: 'CLEAR_CART' }),

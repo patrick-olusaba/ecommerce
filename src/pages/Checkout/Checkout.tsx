@@ -1,18 +1,32 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
+import { recordSale } from '../../utils/salesStorage';
 import { formatKSh, FREE_SHIPPING_THRESHOLD, SHIPPING_COST } from '../../utils/currency';
 import './Checkout.css';
 
 export default function Checkout() {
-  const { items, total, clearCart } = useCart();
+  const { items, total, clearCart, removeItem } = useCart();
   const [placed, setPlaced] = useState(false);
+  const orderNumber = useRef(`AVT-${Math.floor(Math.random() * 900000) + 100000}`);
 
   const shipping = total >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_COST;
   const grandTotal = total + shipping;
 
   const handlePlaceOrder = (e: React.FormEvent) => {
     e.preventDefault();
+    recordSale({
+      id: orderNumber.current,
+      date: new Date().toISOString(),
+      items: items.map((item) => ({
+        productId: item.product.id,
+        name: item.product.name,
+        quantity: item.quantity,
+        price: item.product.price,
+      })),
+      total: grandTotal,
+      itemCount: items.reduce((sum, i) => sum + i.quantity, 0),
+    });
     setPlaced(true);
     clearCart();
   };
@@ -39,7 +53,7 @@ export default function Checkout() {
             <div className="checkout-success__icon">&#10003;</div>
             <h1>Order Confirmed!</h1>
             <p>Thank you for your purchase. You'll receive a confirmation email shortly.</p>
-            <p className="checkout-success__number">Order #AVT-{Math.floor(Math.random() * 900000) + 100000}</p>
+            <p className="checkout-success__number">Order #{orderNumber.current}</p>
             <Link to="/shop" className="btn btn--primary">Continue Shopping</Link>
           </div>
         </div>
@@ -82,6 +96,7 @@ export default function Checkout() {
               <div className="checkout__row">
                 <select required className="checkout__input checkout__select">
                   <option value="">Select country</option>
+                  <option value="KE">Kenya</option>
                   <option value="US">United States</option>
                   <option value="CA">Canada</option>
                   <option value="UK">United Kingdom</option>
@@ -105,7 +120,7 @@ export default function Checkout() {
                 </label>
               </div>
               <div className="checkout__row" style={{ marginTop: 12 }}>
-                <input type="tel" placeholder="M-Pesa phone number (e.g. 0712 345 678)" required className="checkout__input" />
+                <input type="tel" placeholder="M-Pesa phone number (e.g. +254 712 345 678)" required className="checkout__input" />
               </div>
             </fieldset>
 
@@ -117,7 +132,12 @@ export default function Checkout() {
           {/* Order Summary Sidebar */}
           <aside className="checkout__sidebar">
             <div className="checkout-summary">
-              <h3 className="checkout-summary__title">Your Order</h3>
+              <div className="checkout-summary__header">
+                <h3 className="checkout-summary__title">Your Order</h3>
+                <button className="checkout-summary__clear" onClick={clearCart} aria-label="Clear all items">
+                  Clear All
+                </button>
+              </div>
               <div className="checkout-summary__items">
                 {items.map((item) => (
                   <div key={`${item.product.id}-${item.size}-${item.color}`} className="checkout-summary__item">
@@ -134,6 +154,13 @@ export default function Checkout() {
                     <span className="checkout-summary__item-price">
                       {formatKSh(item.product.price * item.quantity)}
                     </span>
+                    <button
+                      className="checkout-summary__item-remove"
+                      onClick={() => removeItem(item.product.id, item.size, item.color)}
+                      aria-label={`Remove ${item.product.name}`}
+                    >
+                      &times;
+                    </button>
                   </div>
                 ))}
               </div>

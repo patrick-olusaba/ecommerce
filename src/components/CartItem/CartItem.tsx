@@ -29,7 +29,7 @@ export default function CartItemRow({ item }: Props) {
       <td className="cart-item__qty-cell">
         <div className="cart-item__qty">
           <button
-            onClick={() => updateQuantity(product.id, item.quantity - 1)}
+            onClick={() => updateQuantity(product.id, item.size, item.color, item.quantity - 1)}
             className="cart-item__qty-btn"
             aria-label="Decrease"
           >
@@ -37,7 +37,7 @@ export default function CartItemRow({ item }: Props) {
           </button>
           <span className="cart-item__qty-val">{item.quantity}</span>
           <button
-            onClick={() => updateQuantity(product.id, item.quantity + 1)}
+            onClick={() => updateQuantity(product.id, item.size, item.color, item.quantity + 1)}
             className="cart-item__qty-btn"
             aria-label="Increase"
           >
@@ -50,7 +50,7 @@ export default function CartItemRow({ item }: Props) {
       </td>
       <td className="cart-item__remove-cell">
         <button
-          onClick={() => removeItem(product.id)}
+          onClick={() => removeItem(product.id, item.size, item.color)}
           className="cart-item__remove"
           aria-label="Remove item"
         >

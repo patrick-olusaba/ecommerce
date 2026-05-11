@@ -3,10 +3,11 @@ import { Link } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
 import { formatKSh, FREE_SHIPPING_THRESHOLD, SHIPPING_COST } from '../../utils/currency';
 import CartItemRow from '../../components/CartItem/CartItem';
+import EmptyState from '../../components/EmptyState/EmptyState';
 import './Cart.css';
 
 export default function Cart() {
-  const { items, itemCount, total } = useCart();
+  const { items, itemCount, total, clearCart } = useCart();
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discount: number } | null>(null);
 
@@ -24,13 +25,13 @@ export default function Cart() {
   if (items.length === 0) {
     return (
       <div className="cart-page">
-        <div className="cart-page__empty">
-          <h1 className="cart-page__heading">My Cart</h1>
-          <p className="cart-page__subtitle">Your cart is empty</p>
-          <Link to="/shop" className="btn btn--primary" style={{ marginTop: 24 }}>
-            Continue Shopping
-          </Link>
-        </div>
+        <h1 className="cart-page__heading" style={{ textAlign: 'center', marginTop: 40 }}>My Cart</h1>
+        <EmptyState
+          icon="cart"
+          title="Your cart is empty"
+          message="Looks like you haven't added anything yet. Start browsing our collection."
+          cta={{ label: 'Browse Products', href: '/shop' }}
+        />
       </div>
     );
   }
@@ -42,12 +43,17 @@ export default function Cart() {
         <h1 className="cart-page__heading">My Cart</h1>
         <div className="cart-page__breadcrumb">
           <span>{itemCount} items in your cart</span>
-          <Link to="/shop" className="cart-page__add-more">
-            Add more
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>
-            </svg>
-          </Link>
+          <div className="cart-page__breadcrumb-actions">
+            <Link to="/shop" className="cart-page__add-more">
+              Add more
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>
+              </svg>
+            </Link>
+            <button className="cart-page__clear-all" onClick={clearCart}>
+              Clear All
+            </button>
+          </div>
         </div>
       </div>
 

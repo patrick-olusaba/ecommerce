@@ -1,8 +1,10 @@
 import { useParams, useSearchParams } from 'react-router-dom';
-import { useState, useMemo } from 'react';
-import { getProductsByCategory, sortProducts, products } from '../../data/products';
+import { useState, useMemo, useEffect } from 'react';
+import { getProductsByCategory, sortProducts, getAllProducts } from '../../data/products';
 import type { SortOption } from '../../types';
 import ProductCard from '../../components/ProductCard/ProductCard';
+import SkeletonCard from '../../components/SkeletonCard/SkeletonCard';
+import EmptyState from '../../components/EmptyState/EmptyState';
 import { formatKSh } from '../../utils/currency';
 import './Shop.css';
 
@@ -11,8 +13,14 @@ export default function Shop() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [sort, setSort] = useState<SortOption>((searchParams.get('sort') as SortOption) || 'rating');
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 100000]);
+  const [loading, setLoading] = useState(true);
 
-  const items = category ? getProductsByCategory(category) : products;
+  useEffect(() => {
+    const t = setTimeout(() => setLoading(false), 600);
+    return () => clearTimeout(t);
+  }, []);
+
+  const items = category ? getProductsByCategory(category) : getAllProducts();
 
   const filtered = useMemo(() => {
     let result = items.filter((p) => p.price >= priceRange[0] && p.price <= priceRange[1]);
@@ -60,7 +68,7 @@ export default function Shop() {
           <div className="filter">
             <h4 className="filter__title">Category</h4>
             <div className="filter__cats">
-              {['watches', 'dresses', 'pants', 'blouses', 'tshirts'].map((cat) => (
+              {['watches', 'dresses', 'pants', 'blouses', 'tshirts', 'sweaters'].map((cat) => (
                 <a
                   key={cat}
                   href={`/shop/${cat}`}
@@ -93,8 +101,15 @@ export default function Shop() {
           </div>
 
           {filtered.length === 0 ? (
-            <div className="shop__empty">
-              <p>No products found.</p>
+            <EmptyState
+              icon="search"
+              title="No products found"
+              message="Try adjusting your filters or browse a different category."
+              cta={{ label: 'View All Products', href: '/shop' }}
+            />
+          ) : loading ? (
+            <div className="product-grid">
+              {Array.from({ length: 8 }, (_, i) => <SkeletonCard key={i} />)}
             </div>
           ) : (
             <div className="product-grid">

@@ -40,6 +40,12 @@
   color: #64748b;
 }
 
+.cart-page__breadcrumb-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
 .cart-page__add-more {
   display: flex;
   align-items: center;
@@ -51,6 +57,22 @@
 
 .cart-page__add-more:hover {
   text-decoration: underline;
+}
+
+.cart-page__clear-all {
+  background: none;
+  border: none;
+  font-size: 0.82rem;
+  color: #ef4444;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background 0.15s;
+  font-family: inherit;
+}
+
+.cart-page__clear-all:hover {
+  background: #fef2f2;
 }
 
 /* Layout */

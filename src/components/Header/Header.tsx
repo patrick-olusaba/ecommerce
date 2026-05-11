@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
+import { useWishlist } from '../../context/WishlistContext';
 import { getProductsByCategory, searchProducts } from '../../data/products';
 import { formatKSh } from '../../utils/currency';
 import './Header.css';
@@ -49,12 +50,14 @@ const megaMenuData: Record<string, { label: string; href: string }[]> = {
 };
 
 export default function Header() {
-  const { itemCount, toggleCart } = useCart();
+  const { itemCount, cartBounce, toggleCart } = useCart();
+  const { count: wishlistCount } = useWishlist();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
-  const [promoOpen, setPromoOpen] = useState(true);
+  const [promoOpen, setPromoOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
 
   const handleMenuEnter = (cat: string) => setMenuOpen(cat);
@@ -166,7 +169,24 @@ export default function Header() {
           </div>
 
           <div className="header__actions">
-            <button className="header__cart-btn" onClick={toggleCart} aria-label="Open cart">
+            <button
+              className={`header__hamburger ${mobileMenuOpen ? 'header__hamburger--open' : ''}`}
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              aria-label="Toggle menu"
+            >
+              <span /><span /><span />
+            </button>
+            <Link to="/wishlist" className="header__wishlist-btn" aria-label="Wishlist">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+              </svg>
+              {wishlistCount > 0 && <span className="header__cart-badge">{wishlistCount}</span>}
+            </Link>
+            <button
+              className={`header__cart-btn ${cartBounce ? 'header__cart-btn--bounce' : ''}`}
+              onClick={toggleCart}
+              aria-label="Open cart"
+            >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/>
                 <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>
@@ -174,9 +194,66 @@ export default function Header() {
               <span className="header__cart-label">Cart</span>
               {itemCount > 0 && <span className="header__cart-badge">{itemCount}</span>}
             </button>
-            <button className="header__login-btn">Login</button>
           </div>
         </div>
+      </div>
+
+      {/* Mobile Menu Overlay */}
+      <div
+        className={`mobile-menu__overlay ${mobileMenuOpen ? 'mobile-menu__overlay--open' : ''}`}
+        onClick={() => setMobileMenuOpen(false)}
+      />
+      <div className={`mobile-menu ${mobileMenuOpen ? 'mobile-menu--open' : ''}`}>
+        <div className="mobile-menu__header">
+          <span className="mobile-menu__title">Menu</span>
+          <button
+            className="mobile-menu__close"
+            onClick={() => setMobileMenuOpen(false)}
+            aria-label="Close menu"
+          >
+            &times;
+          </button>
+        </div>
+        <div className="mobile-menu__search">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="m21 21-4.34-4.34"/>
+            <circle cx="11" cy="11" r="8"/>
+          </svg>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (searchQuery.trim()) {
+                navigate(`/shop?q=${encodeURIComponent(searchQuery.trim())}`);
+                setSearchQuery('');
+                setMobileMenuOpen(false);
+              }
+            }}
+            style={{ flex: 1, display: 'flex' }}
+          >
+            <input
+              className="mobile-menu__search-input"
+              type="text"
+              placeholder="Search products"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </form>
+        </div>
+        <nav className="mobile-menu__nav">
+          <Link to="/" className="mobile-menu__link" onClick={() => setMobileMenuOpen(false)}>
+            Home
+          </Link>
+          {Object.keys(megaMenuData).map((cat) => (
+            <Link
+              key={cat}
+              to={`/shop/${cat}`}
+              className="mobile-menu__link"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              {cat.charAt(0).toUpperCase() + cat.slice(1)}
+            </Link>
+          ))}
+        </nav>
       </div>
 
       {/* Mega Menu Dropdown */}

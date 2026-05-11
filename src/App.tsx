@@ -1,13 +1,22 @@
-import { Routes, Route } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Routes, Route, useLocation } from 'react-router-dom';
 import { useCart } from './context/CartContext';
+import { useToast } from './context/ToastContext';
 import Header from './components/Header/Header';
 import Footer from './components/Footer/Footer';
 import WhatsAppButton from './components/WhatsAppButton/WhatsAppButton';
+import ScrollToTop from './components/ScrollToTop/ScrollToTop';
+import CompareBar from './components/CompareBar/CompareBar';
+import EmptyState from './components/EmptyState/EmptyState';
 import Home from './pages/Home/Home';
 import Shop from './pages/Shop/Shop';
+import Wishlist from './pages/Wishlist/Wishlist';
 import Product from './pages/Product/Product';
 import Cart from './pages/Cart/Cart';
 import Checkout from './pages/Checkout/Checkout';
+import TrackOrder from './pages/TrackOrder/TrackOrder';
+import Admin from './pages/Admin/Admin';
+import NotFound from './pages/NotFound/NotFound';
 import { formatKSh } from './utils/currency';
 import './App.css';
 
@@ -29,7 +38,12 @@ function CartDrawer() {
         </div>
         {items.length === 0 ? (
           <div className="cart-drawer__empty">
-            <p>Your cart is empty.</p>
+            <EmptyState
+              icon="cart"
+              title="Your cart is empty"
+              message="Looks like you haven't added anything yet. Start browsing our collection."
+              cta={{ label: 'Browse Products', href: '/shop' }}
+            />
           </div>
         ) : (
           <>
@@ -67,23 +81,53 @@ function CartDrawer() {
   );
 }
 
+function ScrollToTopOnMount() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+  }, [pathname]);
+  return null;
+}
+
+function ToastContainer() {
+  const { toasts } = useToast();
+
+  return (
+    <div className="toast-container" aria-live="polite">
+      {toasts.map((t) => (
+        <div key={t.id} className={`toast toast--${t.type}`}>
+          {t.message}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function App() {
   return (
     <div className="app">
+      <ScrollToTopOnMount />
       <Header />
       <CartDrawer />
+      <ToastContainer />
       <main className="main">
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/shop" element={<Shop />} />
           <Route path="/shop/:category" element={<Shop />} />
+          <Route path="/wishlist" element={<Wishlist />} />
           <Route path="/product/:id" element={<Product />} />
           <Route path="/cart" element={<Cart />} />
           <Route path="/checkout" element={<Checkout />} />
+          <Route path="/track-order" element={<TrackOrder />} />
+          <Route path="/admin" element={<Admin />} />
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
       <Footer />
       <WhatsAppButton />
+      <ScrollToTop />
+      <CompareBar />
     </div>
   );
 }

@@ -1,12 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { products } from '../../data/products';
+import { getAllProducts } from '../../data/products';
+import { useToast } from '../../context/ToastContext';
 import ProductCard from '../../components/ProductCard/ProductCard';
+import RecentlyViewed from '../../components/RecentlyViewed/RecentlyViewed';
+import SkeletonCard from '../../components/SkeletonCard/SkeletonCard';
 import './Home.css';
 
 const highlights = [
   {
-    image: 'https://images.unsplash.com/photo-1524592094714-0f0654e20314?w=600',
+    image: '/hero/watch.png',
     overline: 'NEWS',
     title: 'Timeless style,\nyou\'ll love.',
     accent: 'Prices you\'ll trust.',
@@ -16,7 +19,7 @@ const highlights = [
     linkText: 'SHOP NOW',
   },
   {
-    image: 'https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?w=600',
+    image: '/hero/dress.png',
     overline: 'NEWS',
     title: 'Dresses that\nturn heads.',
     accent: 'Prices you\'ll trust.',
@@ -27,13 +30,54 @@ const highlights = [
   },
 ];
 
-const categories = ['watches', 'dresses', 'pants', 'blouses', 'tshirts'];
+const categories = ['watches', 'dresses', 'pants', 'blouses', 'tshirts', 'sweaters'];
+
+function useScrollReveal() {
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+          }
+        });
+      },
+      { threshold: 0.1, rootMargin: '0px 0px -40px 0px' }
+    );
+
+    const elements = document.querySelectorAll('.reveal');
+    elements.forEach((el) => observer.observe(el));
+
+    return () => observer.disconnect();
+  }, []);
+}
 
 export default function Home() {
+  useScrollReveal();
   const [slide, setSlide] = useState(0);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-  const bestSellers = [...products].sort((a, b) => b.reviews - a.reviews).slice(0, 8);
-  const newArrivals = [...products].sort((a, b) => b.id - a.id).slice(0, 8);
+  const { addToast } = useToast();
+  const allProducts = getAllProducts();
+  const bestSellers = [...allProducts].sort((a, b) => b.reviews - a.reviews).slice(0, 8);
+  const newArrivals = [...allProducts].sort((a, b) => b.id - a.id).slice(0, 8);
+
+  const [newsletterEmail, setNewsletterEmail] = useState('');
+
+  useEffect(() => {
+    const t = setTimeout(() => setLoading(false), 600);
+    return () => clearTimeout(t);
+  }, []);
+
+  const handleNewsletterSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newsletterEmail.trim()) return;
+    const subs = JSON.parse(localStorage.getItem('avytrendy_subscribers') || '[]');
+    subs.push({ email: newsletterEmail.trim(), date: new Date().toISOString() });
+    localStorage.setItem('avytrendy_subscribers', JSON.stringify(subs));
+    addToast('Subscribed! You\'ll receive our latest updates.');
+    setNewsletterEmail('');
+  };
 
   const next = useCallback(() => setSlide((s) => (s + 1) % highlights.length), []);
 
@@ -51,7 +95,7 @@ export default function Home() {
         <div className="hero__grid">
           {/* Main Card */}
           <div className="hero__main">
-            <div className="hero__main-content">
+            <div className="hero__main-content" key={slide}>
               <div className="hero__chip">
                 <span className="hero__chip-dot">{s.overline}</span>
                 Free Shipping on Orders Above KSh 5,000!
@@ -77,7 +121,7 @@ export default function Home() {
           </div>
 
           {/* Side Cards */}
-          <div className="hero__side">
+          <div className="hero__side reveal">
             <Link to="/shop" className="hero__side-card hero__side-card--orange">
               <div>
                 <p className="hero__side-title">Best<br />products</p>
@@ -89,7 +133,7 @@ export default function Home() {
                 </p>
               </div>
               <img
-                src="https://images.unsplash.com/photo-1524592094714-0f0654e20314?w=300"
+                src="/hero/tshirt.png"
                 alt="Best products"
                 className="hero__side-image"
               />
@@ -105,7 +149,7 @@ export default function Home() {
                 </p>
               </div>
               <img
-                src="https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?w=300"
+                src="/hero/shirt.png"
                 alt="Discounts"
                 className="hero__side-image"
               />
@@ -135,7 +179,7 @@ export default function Home() {
       </section>
 
       {/* Marquee Category Bar */}
-      <div className="categories-marquee">
+      <div className="categories-marquee reveal">
         <div className="categories-marquee__fade-left" />
         <div className="categories-marquee__fade-right" />
         <div className="categories-marquee__track">
@@ -152,11 +196,11 @@ export default function Home() {
       </div>
 
       {/* Best Sellers */}
-      <section className="section">
+      <section className="section reveal">
         <div className="section__header">
           <h2 className="section__title">Best Selling</h2>
           <div className="section__subtitle">
-            <span>Showing {bestSellers.length} of {products.length} products</span>
+            <span>Showing {bestSellers.length} of {allProducts.length} products</span>
             <Link to="/shop">
               View more
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -165,19 +209,22 @@ export default function Home() {
             </Link>
           </div>
         </div>
-        <div className="product-grid">
-          {bestSellers.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
+        <div className="product-grid reveal">
+          {loading
+            ? Array.from({ length: 8 }, (_, i) => <SkeletonCard key={i} />)
+            : bestSellers.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))
+          }
         </div>
       </section>
 
       {/* New Arrivals */}
-      <section className="section">
+      <section className="section reveal">
         <div className="section__header">
           <h2 className="section__title">New Arrivals</h2>
           <div className="section__subtitle">
-            <span>Showing {newArrivals.length} of {products.length} products</span>
+            <span>Showing {newArrivals.length} of {allProducts.length} products</span>
             <Link to="/shop">
               View more
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -186,22 +233,25 @@ export default function Home() {
             </Link>
           </div>
         </div>
-        <div className="product-grid">
-          {newArrivals.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
+        <div className="product-grid reveal">
+          {loading
+            ? Array.from({ length: 8 }, (_, i) => <SkeletonCard key={i} />)
+            : newArrivals.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))
+          }
         </div>
       </section>
 
       {/* Features */}
-      <section className="features">
+      <section className="features reveal">
         <div className="features__header">
           <h2 className="features__title">Our Specifications</h2>
           <p className="features__desc">
             We offer top-tier service and convenience to ensure your shopping experience is smooth, secure, and completely hassle-free.
           </p>
         </div>
-        <div className="features__grid">
+        <div className="features__grid reveal">
           <div className="features__card">
             <div className="features__icon features__icon--green">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -239,14 +289,23 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Recently Viewed */}
+      <RecentlyViewed />
+
       {/* Newsletter */}
-      <section className="newsletter">
+      <section className="newsletter reveal">
         <h2 className="newsletter__title">Join Newsletter</h2>
         <p className="newsletter__desc">
           Subscribe to get exclusive deals, new arrivals, and insider updates delivered straight to your inbox every week.
         </p>
-        <form className="newsletter__form" onSubmit={(e) => e.preventDefault()}>
-          <input className="newsletter__input" type="email" placeholder="Enter your email address" />
+        <form className="newsletter__form" onSubmit={handleNewsletterSubmit}>
+          <input
+            className="newsletter__input"
+            type="email"
+            placeholder="Enter your email address"
+            value={newsletterEmail}
+            onChange={(e) => setNewsletterEmail(e.target.value)}
+          />
           <button className="newsletter__btn" type="submit">Get Updates</button>
         </form>
       </section>

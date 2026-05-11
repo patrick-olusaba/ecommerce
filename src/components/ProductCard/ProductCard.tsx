@@ -1,7 +1,13 @@
+import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import type { Product } from '../../types';
 import { useCart } from '../../context/CartContext';
+import { useWishlist } from '../../context/WishlistContext';
+import { useCompare } from '../../context/CompareContext';
+import { useToast } from '../../context/ToastContext';
 import { formatKSh } from '../../utils/currency';
+import QuickView from '../QuickView/QuickView';
 import './ProductCard.css';
 
 interface Props {
@@ -10,37 +16,107 @@ interface Props {
 
 export default function ProductCard({ product }: Props) {
   const { addItem } = useCart();
+  const { isInWishlist, toggleWishlist } = useWishlist();
+  const { isInCompare, toggleCompare } = useCompare();
+  const { addToast } = useToast();
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const [quickViewOpen, setQuickViewOpen] = useState(false);
   const stars = Array.from({ length: 5 }, (_, i) => i < Math.floor(product.rating));
   const hasSale = product.originalPrice && product.originalPrice > product.price;
+  const hasAltImage = product.images.length > 1;
+  const inWishlist = isInWishlist(product.id);
+  const inCompare = isInCompare(product.id);
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     addItem(product, product.sizes[0], product.colors[0], 1);
+    addToast(`${product.name} added to cart`);
+  };
+
+  const handleWishlistToggle = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    toggleWishlist(product.id);
+    addToast(inWishlist ? `Removed from wishlist` : `Added to wishlist`);
+  };
+
+  const handleCompareToggle = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const ok = toggleCompare(product.id);
+    if (!ok) {
+      addToast('You can compare up to 4 products', 'info');
+    } else {
+      addToast(inCompare ? 'Removed from compare' : 'Added to compare', 'info');
+    }
   };
 
   return (
-    <div className="product-card">
+    <div className="product-card" onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
       <Link to={`/product/${product.id}`} className="product-card__link">
         <div className="product-card__image-wrap">
+          {!imageLoaded && <div className="product-card__shimmer" />}
           <img
             src={product.images[0]}
             alt={product.name}
-            className="product-card__image"
+            className={`product-card__image ${imageLoaded ? 'product-card__image--loaded' : ''}`}
             loading="lazy"
+            onLoad={() => setImageLoaded(true)}
             onError={(e) => {
               const target = e.currentTarget;
               target.src = `https://placehold.co/600x800/f5f0e8/8b7355?text=${encodeURIComponent(product.name)}`;
+              setImageLoaded(true);
             }}
           />
+          {hasAltImage && (
+            <img
+              src={product.images[1]}
+              alt={`${product.name} alternate`}
+              className={`product-card__image-alt ${hovered ? 'product-card__image-alt--visible' : ''}`}
+              loading="lazy"
+            />
+          )}
           {product.badge && <span className="product-card__badge">{product.badge}</span>}
           {hasSale && <span className="product-card__sale-badge">Sale</span>}
-          <button className="product-card__cart-btn" onClick={handleAddToCart} aria-label="Add to cart">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
-              <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
-            </svg>
-          </button>
+          <div className="product-card__actions">
+            <button
+              className={`product-card__compare-btn ${inCompare ? 'product-card__compare-btn--active' : ''}`}
+              onClick={handleCompareToggle}
+              aria-label={inCompare ? 'Remove from compare' : 'Add to compare'}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="2" y="3" width="8" height="12" rx="1"/>
+                <rect x="14" y="7" width="8" height="8" rx="1"/>
+              </svg>
+            </button>
+            <button
+              className={`product-card__wishlist-btn ${inWishlist ? 'product-card__wishlist-btn--active' : ''}`}
+              onClick={handleWishlistToggle}
+              aria-label={inWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill={inWishlist ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+              </svg>
+            </button>
+            <button
+              className="product-card__qv-btn"
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setQuickViewOpen(true); }}
+              aria-label="Quick view"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+            </button>
+            <button className="product-card__cart-btn" onClick={handleAddToCart} aria-label="Add to cart">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
+                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+              </svg>
+            </button>
+          </div>
         </div>
 
         {/* Color dots */}
@@ -78,6 +154,10 @@ export default function ProductCard({ product }: Props) {
           </div>
         </div>
       </Link>
+      {quickViewOpen && createPortal(
+        <QuickView product={product} onClose={() => setQuickViewOpen(false)} />,
+        document.body
+      )}
     </div>
   );
 }
