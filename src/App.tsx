@@ -2,6 +2,7 @@ import { Routes, Route } from 'react-router-dom';
 import { useCart } from './context/CartContext';
 import Header from './components/Header/Header';
 import Footer from './components/Footer/Footer';
+import WhatsAppButton from './components/WhatsAppButton/WhatsAppButton';
 import Home from './pages/Home/Home';
 import Shop from './pages/Shop/Shop';
 import Product from './pages/Product/Product';
@@ -82,6 +83,7 @@ export default function App() {
         </Routes>
       </main>
       <Footer />
+      <WhatsAppButton />
     </div>
   );
 }
