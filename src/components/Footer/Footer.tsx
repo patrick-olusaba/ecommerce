@@ -7,11 +7,11 @@ export default function Footer() {
       <div className="footer__container">
         <div className="footer__brand">
           <Link to="/" className="footer__logo">
-            AVY<span className="footer__logo-accent">TREDY</span>
+            AVY<span className="footer__logo-accent">TRENDY</span>
             <span style={{ color: '#22c55e', fontSize: '1.8rem', lineHeight: 0 }}>.</span>
           </Link>
           <p className="footer__desc">
-            Welcome to AVYTREDY, your ultimate destination for the latest fashion and accessories. From watches and dresses to everyday essentials, we bring you the best in style — all in one place.
+            Welcome to AVYTRENDY, your ultimate destination for the latest fashion and accessories. From watches and dresses to everyday essentials, we bring you the best in style — all in one place.
           </p>
           <div className="footer__social">
             <a href="#" className="footer__social-link" aria-label="Facebook">
@@ -61,7 +61,7 @@ export default function Footer() {
             <svg className="footer__contact-icon" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
               <path d="M14.67 4.67L8.67 8.48a1 1 0 0 1-1.34 0L1.33 4.67M2.67 2.67h10.66a1.33 1.33 0 0 1 1.34 1.33v8a1.33 1.33 0 0 1-1.34 1.33H2.67a1.33 1.33 0 0 1-1.34-1.33V4a1.33 1.33 0 0 1 1.34-1.33Z"/>
             </svg>
-            support@avytredy.co.ke
+            support@avytrendy.co.ke
           </a>
           <a href="#" className="footer__link">
             <svg className="footer__contact-icon" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -81,7 +81,7 @@ export default function Footer() {
 
       <div className="footer__bottom">
         <div className="footer__bottom-inner">
-          <p className="footer__copy">Copyright 2025 &copy; AVYTREDY All Right Reserved.</p>
+          <p className="footer__copy">Copyright 2025 &copy; AVYTRENDY All Right Reserved.</p>
           <div className="footer__payments">
             <span className="footer__payment-icon">VISA</span>
             <span className="footer__payment-icon">MC</span>

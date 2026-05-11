@@ -93,16 +93,19 @@ export default function Checkout() {
 
             {/* Payment */}
             <fieldset className="checkout__section">
-              <legend className="checkout__section-title">Payment</legend>
-              <div className="checkout__row">
-                <input type="text" placeholder="Card number" required className="checkout__input" />
+              <legend className="checkout__section-title">Payment Method</legend>
+              <div className="checkout__radio-group">
+                <label className="checkout__radio">
+                  <input type="radio" name="payment" value="mpesa" defaultChecked />
+                  <span>M-Pesa</span>
+                </label>
+                <label className="checkout__radio">
+                  <input type="radio" name="payment" value="cod" />
+                  <span>Cash on Delivery</span>
+                </label>
               </div>
-              <div className="checkout__row checkout__row--half">
-                <input type="text" placeholder="MM / YY" required className="checkout__input" />
-                <input type="text" placeholder="CVC" required className="checkout__input" />
-              </div>
-              <div className="checkout__row">
-                <input type="text" placeholder="Name on card" required className="checkout__input" />
+              <div className="checkout__row" style={{ marginTop: 12 }}>
+                <input type="tel" placeholder="M-Pesa phone number (e.g. 0712 345 678)" required className="checkout__input" />
               </div>
             </fieldset>
 
