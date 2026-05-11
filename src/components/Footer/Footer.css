@@ -1,0 +1,148 @@
+.footer {
+  background: #fff;
+  color: #64748b;
+  margin-top: auto;
+  border-top: 1px solid #e5e7eb;
+}
+
+.footer__container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 56px 24px 40px;
+  display: grid;
+  grid-template-columns: 1.5fr 1fr 1fr 1fr;
+  gap: 40px;
+}
+
+/* Brand */
+.footer__brand {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.footer__logo {
+  text-decoration: none;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1a1a2e;
+  letter-spacing: 1px;
+}
+
+.footer__logo-accent {
+  color: #22c55e;
+}
+
+.footer__desc {
+  font-size: 0.85rem;
+  line-height: 1.7;
+  margin: 0;
+  max-width: 360px;
+}
+
+.footer__social {
+  display: flex;
+  gap: 10px;
+}
+
+.footer__social-link {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #f5f5f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  transition: all 0.2s;
+  border: 1px solid transparent;
+}
+
+.footer__social-link:hover {
+  color: #1a1a2e;
+  border-color: #d1d5db;
+  background: #fff;
+  transform: scale(1.05);
+}
+
+/* Columns */
+.footer__col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.footer__heading {
+  color: #1a1a2e;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin: 0 0 6px 0;
+}
+
+.footer__link {
+  color: #64748b;
+  text-decoration: none;
+  font-size: 0.85rem;
+  transition: color 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.footer__link:hover {
+  color: #1a1a2e;
+  text-decoration: underline;
+}
+
+.footer__contact-icon {
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+
+/* Bottom */
+.footer__bottom {
+  border-top: 1px solid #e5e7eb;
+}
+
+.footer__bottom-inner {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 20px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.footer__copy {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #94a3b8;
+}
+
+.footer__payments {
+  display: flex;
+  gap: 12px;
+}
+
+.footer__payment-icon {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #94a3b8;
+  letter-spacing: 0.5px;
+  background: #f5f5f5;
+  padding: 6px 10px;
+  border-radius: 6px;
+}
+
+@media (max-width: 900px) {
+  .footer__container {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .footer__container {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+}
