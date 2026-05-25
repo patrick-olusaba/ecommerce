@@ -1,0 +1,28 @@
+.wishlist-page {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 32px 24px 64px;
+}
+
+.wishlist-page__header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 28px;
+}
+
+.wishlist-page__title {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin: 0;
+}
+
+.wishlist-page__count {
+  font-size: 0.9rem;
+  color: #888;
+}
+
+.wishlist-page__empty {
+  padding-top: 60px;
+}
