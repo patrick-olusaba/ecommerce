@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
 import { useCart } from './context/CartContext';
 import { useToast } from './context/ToastContext';
+import ErrorBoundary from './components/ErrorBoundary/ErrorBoundary';
 import Header from './components/Header/Header';
 import Footer from './components/Footer/Footer';
 import WhatsAppButton from './components/WhatsAppButton/WhatsAppButton';
@@ -160,9 +161,11 @@ function StoreLayout() {
 
 export default function App() {
   return (
-    <div className="app">
-      <ScrollToTopOnMount />
-      <StoreLayout />
-    </div>
+    <ErrorBoundary>
+      <div className="app">
+        <ScrollToTopOnMount />
+        <StoreLayout />
+      </div>
+    </ErrorBoundary>
   );
 }

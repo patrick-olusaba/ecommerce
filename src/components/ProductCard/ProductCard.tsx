@@ -6,6 +6,7 @@ import { useCart } from '../../context/CartContext';
 import { useWishlist } from '../../context/WishlistContext';
 import { useCompare } from '../../context/CompareContext';
 import { useToast } from '../../context/ToastContext';
+import { useAuth } from '../../context/AuthContext';
 import { formatKSh } from '../../utils/currency';
 import { getProductBadge } from '../../data/products';
 import QuickView from '../QuickView/QuickView';
@@ -16,6 +17,7 @@ interface Props {
 }
 
 export default function ProductCard({ product }: Props) {
+  const { user } = useAuth();
   const { addItem } = useCart();
   const { isInWishlist, toggleWishlist } = useWishlist();
   const { isInCompare, toggleCompare } = useCompare();
@@ -96,15 +98,17 @@ export default function ProductCard({ product }: Props) {
                 <rect x="14" y="7" width="8" height="8" rx="1"/>
               </svg>
             </button>
-            <button
-              className={`product-card__wishlist-btn ${inWishlist ? 'product-card__wishlist-btn--active' : ''}`}
-              onClick={handleWishlistToggle}
-              aria-label={inWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill={inWishlist ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
-                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-              </svg>
-            </button>
+            {user && (
+              <button
+                className={`product-card__wishlist-btn ${inWishlist ? 'product-card__wishlist-btn--active' : ''}`}
+                onClick={handleWishlistToggle}
+                aria-label={inWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill={inWishlist ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
+                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                </svg>
+              </button>
+            )}
             <button
               className="product-card__qv-btn"
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); setQuickViewOpen(true); }}

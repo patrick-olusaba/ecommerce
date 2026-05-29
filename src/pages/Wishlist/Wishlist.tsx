@@ -1,4 +1,7 @@
+import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useWishlist } from '../../context/WishlistContext';
+import { useAuth } from '../../context/AuthContext';
 import useDocumentTitle from '../../hooks/useDocumentTitle';
 import ProductCard from '../../components/ProductCard/ProductCard';
 import EmptyState from '../../components/EmptyState/EmptyState';
@@ -6,7 +9,15 @@ import './Wishlist.css';
 
 export default function Wishlist() {
   useDocumentTitle('Wishlist');
+  const { user } = useAuth();
   const { items, count } = useWishlist();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!user) navigate('/auth', { replace: true });
+  }, [user, navigate]);
+
+  if (!user) return null;
 
   if (count === 0) {
     return (

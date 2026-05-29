@@ -109,7 +109,30 @@ export default function Home() {
   const { addToast } = useToast();
   const allProducts = getAllProducts();
   const bestSellers = [...allProducts].sort((a, b) => b.reviews - a.reviews).slice(0, 8);
-  const newArrivals = [...allProducts].sort((a, b) => b.id - a.id).slice(0, 8);
+  const newArrivals = useMemo(() => {
+    const arrivals = allProducts.filter((p) => p.badge === 'New Arrival');
+    const byCategory: Record<string, typeof arrivals> = {};
+    arrivals.forEach((p) => {
+      if (!byCategory[p.category]) byCategory[p.category] = [];
+      byCategory[p.category].push(p);
+    });
+    const cats = Object.keys(byCategory);
+    const result: typeof arrivals = [];
+    let idx = 0;
+    while (result.length < 8) {
+      let added = false;
+      for (const cat of cats) {
+        if (byCategory[cat][idx]) {
+          result.push(byCategory[cat][idx]);
+          added = true;
+          if (result.length >= 8) break;
+        }
+      }
+      if (!added) break;
+      idx++;
+    }
+    return result;
+  }, [allProducts]);
 
   const slidePrices = useMemo(() => {
     return highlights.map((h) => {

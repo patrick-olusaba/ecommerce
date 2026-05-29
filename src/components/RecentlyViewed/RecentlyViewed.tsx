@@ -1,12 +1,14 @@
 import { Link } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import useRecentlyViewed from '../../hooks/useRecentlyViewed';
 import { formatKSh } from '../../utils/currency';
 import './RecentlyViewed.css';
 
 export default function RecentlyViewed() {
+  const { user } = useAuth();
   const { recentProducts } = useRecentlyViewed();
 
-  if (recentProducts.length === 0) return null;
+  if (!user || recentProducts.length === 0) return null;
 
   return (
     <section className="recently-viewed">

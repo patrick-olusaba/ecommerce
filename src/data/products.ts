@@ -1,6 +1,15 @@
 import type { Product } from '../types';
 import { getAdminProducts } from '../utils/adminStorage';
 
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 const staticProducts: Product[] = [
   // CURREN LADIES WATCHES
   {
@@ -26,6 +35,7 @@ const staticProducts: Product[] = [
     images: ['/watches/curren2.jpeg'],
     sizes: ['One Size'],
     colors: ['Curren'],
+    badge: 'New Arrival',
     featured: true,
     rating: 4.4,
     reviews: 38,
@@ -52,6 +62,7 @@ const staticProducts: Product[] = [
     images: ['/watches/curren4.jpeg'],
     sizes: ['One Size'],
     colors: ['Curren'],
+    badge: 'New Arrival',
     featured: false,
     rating: 4.3,
     reviews: 29,
@@ -1372,13 +1383,165 @@ const staticProducts: Product[] = [
     featured: false,
     rating: 4,
     reviews: 115,
-  }
+  },
+
+  // SMARTWATCHES
+  {
+    id: 420,
+    name: 'Ultra Smartwatch Series 8',
+    category: 'watches',
+    price: 8500,
+    originalPrice: 12000,
+    description: 'Advanced smartwatch with 1.9" AMOLED display, heart rate monitoring, SpO2 sensor, and 7-day battery life. IP68 waterproof with 100+ sport modes.',
+    images: ['/watches/smartwatch1.jpg'],
+    sizes: ['One Size'],
+    colors: ['Black'],
+    badge: 'Trending',
+    featured: true,
+    rating: 4.8,
+    reviews: 156,
+  },
+  {
+    id: 421,
+    name: 'Fitness Pro Smartwatch',
+    category: 'watches',
+    price: 7200,
+    originalPrice: 9500,
+    description: 'Feature-packed fitness smartwatch with GPS tracking, sleep analysis, and always-on display. Compatible with iOS and Android.',
+    images: ['/watches/smartwatch2.jpg'],
+    sizes: ['One Size'],
+    colors: ['Black', 'Silver'],
+    badge: 'Best Seller',
+    featured: true,
+    rating: 4.7,
+    reviews: 203,
+  },
+  {
+    id: 422,
+    name: 'Classic Leather Smartwatch',
+    category: 'watches',
+    price: 6800,
+    description: 'Premium hybrid smartwatch with genuine leather strap, analog-digital display, and discreet notifications. Blends classic style with smart features.',
+    images: ['/watches/smartwatch3.jpg'],
+    sizes: ['One Size'],
+    colors: ['Brown', 'Black'],
+    featured: true,
+    rating: 4.6,
+    reviews: 89,
+  },
+  {
+    id: 423,
+    name: 'Sport Rugged Smartwatch',
+    category: 'watches',
+    price: 9500,
+    originalPrice: 13500,
+    description: 'Military-grade rugged smartwatch with sapphire glass, altimeter, barometer, compass, and dual-band GPS. Built for extreme outdoor adventures.',
+    images: ['/watches/smartwatch4.jpg'],
+    sizes: ['One Size'],
+    colors: ['Black', 'Green'],
+    badge: 'Trending',
+    featured: false,
+    rating: 4.9,
+    reviews: 67,
+  },
+  {
+    id: 424,
+    name: 'Slim Elegance Smartwatch',
+    category: 'watches',
+    price: 5500,
+    originalPrice: 7000,
+    description: 'Ultra-slim 8mm smartwatch with colour touchscreen, menstrual health tracking, stress monitoring, and customizable watch faces.',
+    images: ['/watches/smartwatch5.jpg'],
+    sizes: ['One Size'],
+    colors: ['Rose Gold', 'Silver', 'Gold'],
+    badge: 'New Arrival',
+    featured: true,
+    rating: 4.5,
+    reviews: 134,
+  },
+  {
+    id: 425,
+    name: 'Business Elite Smartwatch',
+    category: 'watches',
+    price: 11000,
+    originalPrice: 15000,
+    description: 'Executive-grade smartwatch with stainless steel body, sapphire crystal display, Bluetooth calling, and wireless charging. Professional and refined.',
+    images: ['/watches/smartwatch6.jpg'],
+    sizes: ['One Size'],
+    colors: ['Silver', 'Black'],
+    badge: 'Best Seller',
+    featured: true,
+    rating: 4.8,
+    reviews: 178,
+  },
+  {
+    id: 426,
+    name: 'Youth Band Smartwatch',
+    category: 'watches',
+    price: 3800,
+    description: 'Affordable smartwatch for everyday use. Features step counter, sleep tracking, call notifications, and a vibrant 1.7" HD display.',
+    images: ['/watches/smartwatch7.jpg'],
+    sizes: ['One Size'],
+    colors: ['Black', 'Blue', 'Pink'],
+    badge: 'Trending',
+    featured: false,
+    rating: 4.3,
+    reviews: 245,
+  },
+  {
+    id: 427,
+    name: 'Nova Fit Smartwatch',
+    category: 'watches',
+    price: 6200,
+    originalPrice: 8200,
+    description: 'Sleek smartwatch with a vibrant 1.8" curved display, body temperature sensor, and AI-powered fitness coach. Up to 10 days battery life.',
+    images: ['/watches/smartwatch8.jpg'],
+    sizes: ['One Size'],
+    colors: ['Black', 'Midnight Blue'],
+    badge: 'New Arrival',
+    featured: true,
+    rating: 4.6,
+    reviews: 98,
+  },
+  {
+    id: 428,
+    name: 'ChronoLink Smartwatch',
+    category: 'watches',
+    price: 7800,
+    originalPrice: 10500,
+    description: 'Premium chronograph-style smartwatch with dual-layer AMOLED, NFC payments, onboard music storage, and 14-day battery in power-save mode.',
+    images: ['/watches/smartwatch9.jpg'],
+    sizes: ['One Size'],
+    colors: ['Silver', 'Gunmetal Grey'],
+    badge: 'Trending',
+    featured: false,
+    rating: 4.7,
+    reviews: 156,
+  },
+  {
+    id: 429,
+    name: 'Active Lite Smartwatch',
+    category: 'watches',
+    price: 4500,
+    description: 'Lightweight budget-friendly smartwatch with 1.6" colour display, 25 sport modes, heart rate tracking, and IP67 water resistance. Great value starter smartwatch.',
+    images: ['/watches/smartwatch10.jpg'],
+    sizes: ['One Size'],
+    colors: ['Black', 'White', 'Green'],
+    badge: 'Best Seller',
+    featured: true,
+    rating: 4.4,
+    reviews: 312,
+  },
 
 
 ];
 
+const mixedProducts: Product[] = shuffle(staticProducts);
+
 export function getAllProducts(): Product[] {
-  return [...staticProducts, ...getAdminProducts()];
+  // Start with the pre-shuffled built-in products so categories are mixed,
+  // then append admin products (which are added after the fact)
+  return [...mixedProducts, ...getAdminProducts()];
 }
 
 export function getProductBadge(product: Product): { label: string; type: string } | null {

@@ -3,6 +3,7 @@ import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { getProductById, getRelatedProducts, getProductBadge } from '../../data/products';
 import { useCart } from '../../context/CartContext';
 import { useWishlist } from '../../context/WishlistContext';
+import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import useDocumentTitle from '../../hooks/useDocumentTitle';
 import ProductCard from '../../components/ProductCard/ProductCard';
@@ -18,6 +19,7 @@ export default function Product() {
   const { id } = useParams();
   const product = id ? getProductById(Number(id)) : undefined;
   useDocumentTitle(product?.name ?? 'Product');
+  const { user } = useAuth();
   const { addItem } = useCart();
   const { isInWishlist, toggleWishlist } = useWishlist();
   const { addToast } = useToast();
@@ -226,15 +228,17 @@ export default function Product() {
           </div>
 
           {/* Wishlist */}
-          <button
-            className={`product-info__wishlist-btn ${inWishlist ? 'product-info__wishlist-btn--active' : ''}`}
-            onClick={handleWishlistToggle}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill={inWishlist ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
-              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-            </svg>
-            {inWishlist ? 'Saved to Wishlist' : 'Add to Wishlist'}
-          </button>
+          {user && (
+            <button
+              className={`product-info__wishlist-btn ${inWishlist ? 'product-info__wishlist-btn--active' : ''}`}
+              onClick={handleWishlistToggle}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill={inWishlist ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+              </svg>
+              {inWishlist ? 'Saved to Wishlist' : 'Add to Wishlist'}
+            </button>
+          )}
 
           {/* WhatsApp Share */}
           <a

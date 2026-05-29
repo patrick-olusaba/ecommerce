@@ -222,6 +222,24 @@
   transform: scale(1.05);
 }
 
+.header__track-btn {
+  position: relative;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #555;
+  padding: 4px;
+  transition: color var(--transition-base), transform var(--transition-fast);
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+.header__track-btn:hover {
+  color: #6366f1;
+  transform: scale(1.05);
+}
+
 .header__cart-btn {
   position: relative;
   background: none;

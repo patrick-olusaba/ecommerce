@@ -25,6 +25,19 @@ function exportCSV(sales: Sale[]) {
   URL.revokeObjectURL(url);
 }
 
+function exportSubscribersCSV(subs: { email: string; date: string }[]) {
+  const header = 'Email,Date Subscribed';
+  const rows = subs.map((s) => `${s.email},"${new Date(s.date).toLocaleDateString()}"`);
+  const csv = [header, ...rows].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `avytrendy-subscribers-${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 function getLocalSubscribers(): { email: string; date: string }[] {
   try {
     const raw = localStorage.getItem('avytrendy_subscribers');
@@ -44,6 +57,7 @@ const emptyForm = {
   featured: false,
   rating: '4.0',
   reviews: '0',
+  stock: '',
 };
 
 const CATEGORIES = ['watches', 'dresses', 'pants', 'blouses', 'tshirts', 'sweaters'] as const;
@@ -134,6 +148,11 @@ function Dashboard() {
   const [expandedMessage, setExpandedMessage] = useState<string | null>(null);
   const [salesRefresh, setSalesRefresh] = useState(0);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [period, setPeriod] = useState<'today' | 'week' | 'month'>('month');
+  const [orderSearch, setOrderSearch] = useState('');
+  const [messageSearch, setMessageSearch] = useState('');
+  const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
+  const [batchStatus, setBatchStatus] = useState(2);
   const [firestoreSubs, setFirestoreSubs] = useState<{ email: string; date: string }[]>([]);
   const [firestoreMessages, setFirestoreMessages] = useState<{ id: string; name: string; email: string; subject: string; message: string; date: string }[]>([]);
   const [firestoreReviews, setFirestoreReviews] = useState<{ id: string; productId: number; name: string; rating: number; comment: string; date: string }[]>([]);
@@ -189,6 +208,55 @@ function Dashboard() {
     ordersToday: allSales.filter((s) => s.date.startsWith(today)).length,
     unreadMessages: messagesList.filter((m: { date: string }) => m.date.startsWith(today)).length,
     newSubsToday: subscribersList.filter((s) => s.date.startsWith(today)).length,
+  };
+
+  const orderStatusCounts = {
+    placed: allSales.filter((s) => getOrderStatus(s) === 1).length,
+    processing: allSales.filter((s) => getOrderStatus(s) === 2).length,
+    shipped: allSales.filter((s) => getOrderStatus(s) === 3).length,
+    delivered: allSales.filter((s) => getOrderStatus(s) === 4).length,
+  };
+
+  const aov = allSales.length > 0 ? allSales.reduce((sum, s) => sum + s.total, 0) / allSales.length : 0;
+
+  const periodLabel = period === 'today' ? 'Today' : period === 'week' ? 'This Week' : 'This Month';
+  const periodRevenue = period === 'today' ? todayRevenue : period === 'week' ? weekRevenue : monthRevenue;
+  const periodItems = period === 'today' ? todayItems : period === 'week' ? weekItems : monthItems;
+
+  const filteredOrders = allSales.filter((s) => {
+    if (!orderSearch) return true;
+    const q = orderSearch.toLowerCase();
+    return s.id.toLowerCase().includes(q);
+  });
+
+  const lowStockProducts = allProducts.filter((p) => p.stock != null && p.stock <= 5);
+
+  const filteredMessages = messagesList.filter((m: { id: string; name: string; email: string; subject: string; message: string; date: string }) => {
+    if (!messageSearch) return true;
+    const q = messageSearch.toLowerCase();
+    return m.name.toLowerCase().includes(q) || m.email.toLowerCase().includes(q) || m.subject.toLowerCase().includes(q) || m.message.toLowerCase().includes(q);
+  });
+
+  const toggleOrderSelect = (id: string) => {
+    setSelectedOrders((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAllOrders = () => {
+    if (selectedOrders.size === filteredOrders.length) {
+      setSelectedOrders(new Set());
+    } else {
+      setSelectedOrders(new Set(filteredOrders.map((s) => s.id)));
+    }
+  };
+
+  const handleBatchStatusUpdate = () => {
+    selectedOrders.forEach((id) => updateOrderStatus(id, batchStatus));
+    setSalesRefresh((n) => n + 1);
+    setSelectedOrders(new Set());
   };
 
   const categoryCounts = CATEGORIES.map((cat) => ({
@@ -260,6 +328,7 @@ function Dashboard() {
       featured: form.featured,
       rating: Number(form.rating),
       reviews: Number(form.reviews),
+      stock: form.stock ? Number(form.stock) : undefined,
     };
 
     if (editingId) {
@@ -304,6 +373,7 @@ function Dashboard() {
       featured: product.featured,
       rating: String(product.rating),
       reviews: String(product.reviews),
+      stock: product.stock != null ? String(product.stock) : '',
     });
     setEditingId(product.id);
     setExistingImages(product.images);
@@ -482,6 +552,19 @@ function Dashboard() {
         {/* === Overview Tab === */}
         {activeTab === 'overview' && (
           <div className="dashboard__overview">
+            {/* Period Toggle */}
+            <div className="period-toggle">
+              {(['today', 'week', 'month'] as const).map((p) => (
+                <button
+                  key={p}
+                  className={`period-toggle__btn ${period === p ? 'period-toggle__btn--active' : ''}`}
+                  onClick={() => setPeriod(p)}
+                >
+                  {p === 'today' ? 'Today' : p === 'week' ? 'This Week' : 'This Month'}
+                </button>
+              ))}
+            </div>
+
             {/* Stat Cards — gradient style */}
             <div className="stat-cards">
               <div className="stat-card stat-card--blue">
@@ -503,21 +586,21 @@ function Dashboard() {
                   </svg>
                 </div>
                 <div className="stat-card__body">
-                  <span className="stat-card__value">{formatKSh(monthRevenue)}</span>
-                  <span className="stat-card__label">Monthly Revenue</span>
-                  <span className="stat-card__sub">{allSales.length} orders</span>
+                  <span className="stat-card__value">{formatKSh(periodRevenue)}</span>
+                  <span className="stat-card__label">{periodLabel} Revenue</span>
+                  <span className="stat-card__sub">{periodItems} items</span>
                 </div>
               </div>
               <div className="stat-card stat-card--green">
                 <div className="stat-card__icon-wrap">
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/>
+                    <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
                   </svg>
                 </div>
                 <div className="stat-card__body">
-                  <span className="stat-card__value">{formatKSh(todayRevenue)}</span>
-                  <span className="stat-card__label">Today's Revenue</span>
-                  <span className="stat-card__sub">{todayItems} items sold today</span>
+                  <span className="stat-card__value">{formatKSh(aov)}</span>
+                  <span className="stat-card__label">Avg Order Value</span>
+                  <span className="stat-card__sub">{allSales.length} orders</span>
                 </div>
               </div>
               <div className="stat-card stat-card--purple">
@@ -533,6 +616,46 @@ function Dashboard() {
                 </div>
               </div>
             </div>
+
+            {/* Order Status Summary */}
+            <div className="order-status-cards">
+              <div className="order-status-card order-status-card--placed">
+                <span className="order-status-card__count">{orderStatusCounts.placed}</span>
+                <span className="order-status-card__label">Order Placed</span>
+              </div>
+              <div className="order-status-card order-status-card--processing">
+                <span className="order-status-card__count">{orderStatusCounts.processing}</span>
+                <span className="order-status-card__label">Processing</span>
+              </div>
+              <div className="order-status-card order-status-card--shipped">
+                <span className="order-status-card__count">{orderStatusCounts.shipped}</span>
+                <span className="order-status-card__label">Shipped</span>
+              </div>
+              <div className="order-status-card order-status-card--delivered">
+                <span className="order-status-card__count">{orderStatusCounts.delivered}</span>
+                <span className="order-status-card__label">Delivered</span>
+              </div>
+            </div>
+
+            {/* Low Stock Alert */}
+            {lowStockProducts.length > 0 && (
+              <div className="low-stock-alert">
+                <div className="low-stock-alert__header">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                    <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                  </svg>
+                  <span>Low Stock Alert &mdash; {lowStockProducts.length} product{lowStockProducts.length !== 1 ? 's' : ''} running low</span>
+                </div>
+                <div className="low-stock-alert__list">
+                  {lowStockProducts.map((p) => (
+                    <span key={p.id} className="low-stock-alert__item">
+                      {p.name} ({p.stock} left)
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Sales stat row with trends */}
             <div className="dashboard__stats">
@@ -924,13 +1047,57 @@ function Dashboard() {
                   Export CSV
                 </button>
               </div>
+              <div className="admin__search-wrap">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                </svg>
+                <input
+                  className="admin__search"
+                  type="text"
+                  placeholder="Search orders by ID..."
+                  value={orderSearch}
+                  onChange={(e) => { setOrderSearch(e.target.value); setSelectedOrders(new Set()); }}
+                />
+                {orderSearch && (
+                  <button className="admin__search-clear" onClick={() => setOrderSearch('')}>&times;</button>
+                )}
+              </div>
+              {selectedOrders.size > 0 && (
+                <div className="batch-bar">
+                  <span className="batch-bar__count">{selectedOrders.size} selected</span>
+                  <select
+                    className="batch-bar__select"
+                    value={batchStatus}
+                    onChange={(e) => setBatchStatus(Number(e.target.value))}
+                  >
+                    <option value={2}>Processing</option>
+                    <option value={3}>Shipped</option>
+                    <option value={4}>Delivered</option>
+                  </select>
+                  <button className="batch-bar__apply" onClick={handleBatchStatusUpdate}>
+                    Apply
+                  </button>
+                  <button className="batch-bar__cancel" onClick={() => setSelectedOrders(new Set())}>
+                    Cancel
+                  </button>
+                </div>
+              )}
               {allSales.length === 0 ? (
                 <p className="admin__empty">No orders yet. Orders will appear here when customers place them.</p>
+              ) : filteredOrders.length === 0 ? (
+                <p className="admin__empty">No orders match your search.</p>
               ) : (
                 <div className="sales-table-wrap">
                   <table className="sales-table">
                     <thead>
                       <tr>
+                        <th style={{ width: 36 }}>
+                          <input
+                            type="checkbox"
+                            checked={selectedOrders.size === filteredOrders.length && filteredOrders.length > 0}
+                            onChange={toggleAllOrders}
+                          />
+                        </th>
                         <th>Order ID</th>
                         <th>Date</th>
                         <th>Items</th>
@@ -940,7 +1107,7 @@ function Dashboard() {
                       </tr>
                     </thead>
                     <tbody>
-                      {[...allSales].reverse().map((sale) => {
+                      {[...filteredOrders].reverse().map((sale) => {
                         const currentStatus = getOrderStatus(sale);
                         const statusLabels: Record<number, string> = {
                           1: 'Order Placed',
@@ -951,6 +1118,13 @@ function Dashboard() {
                         const isExpanded = expandedOrder === sale.id;
                         return (
                           <tr key={sale.id} className={`sales-table__row ${isExpanded ? 'sales-table__row--expanded' : ''}`}>
+                            <td>
+                              <input
+                                type="checkbox"
+                                checked={selectedOrders.has(sale.id)}
+                                onChange={() => toggleOrderSelect(sale.id)}
+                              />
+                            </td>
                             <td className="sales-table__id">{sale.id}</td>
                             <td>{new Date(sale.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</td>
                             <td>{sale.itemCount} item{sale.itemCount !== 1 ? 's' : ''}</td>
@@ -1051,9 +1225,17 @@ function Dashboard() {
             </div>
 
             <div className="admin__list" style={{ marginTop: 24 }}>
-              <h2 className="admin__section-title">
-                All Subscribers ({subscribersList.length})
-              </h2>
+              <div className="admin__section-header">
+                <h2 className="admin__section-title" style={{ margin: 0 }}>
+                  All Subscribers ({subscribersList.length})
+                </h2>
+                <button className="admin__export-btn" onClick={() => exportSubscribersCSV(subscribersList)}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                  Export CSV
+                </button>
+              </div>
               {subscribersList.length === 0 ? (
                 <p className="admin__empty">No subscribers yet. Subscribers will appear when someone signs up via the newsletter form.</p>
               ) : (
@@ -1114,8 +1296,25 @@ function Dashboard() {
               <h2 className="admin__section-title">
                 All Messages ({messagesList.length})
               </h2>
+              <div className="admin__search-wrap">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                </svg>
+                <input
+                  className="admin__search"
+                  type="text"
+                  placeholder="Search messages by name, email, or content..."
+                  value={messageSearch}
+                  onChange={(e) => setMessageSearch(e.target.value)}
+                />
+                {messageSearch && (
+                  <button className="admin__search-clear" onClick={() => setMessageSearch('')}>&times;</button>
+                )}
+              </div>
               {messagesList.length === 0 ? (
                 <p className="admin__empty">No messages yet. Messages will appear when someone submits the contact form.</p>
+              ) : filteredMessages.length === 0 ? (
+                <p className="admin__empty">No messages match your search.</p>
               ) : (
                 <div className="sales-table-wrap">
                   <table className="sales-table">
@@ -1129,7 +1328,7 @@ function Dashboard() {
                       </tr>
                     </thead>
                     <tbody>
-                      {[...messagesList].reverse().map((msg: { id: string; name: string; email: string; subject: string; message: string; date: string }, i: number) => {
+                      {[...filteredMessages].reverse().map((msg: { id: string; name: string; email: string; subject: string; message: string; date: string }, i: number) => {
                         const isExpanded = expandedMessage === msg.id;
                         const preview = msg.message.length > 100 ? `${msg.message.slice(0, 100)}…` : msg.message;
                         return (
@@ -1334,6 +1533,16 @@ function Dashboard() {
                   type="number"
                   value={form.reviews}
                   onChange={(e) => setForm({ ...form, reviews: e.target.value })}
+                />
+              </div>
+              <div className="admin__field">
+                <label className="admin__label">Stock</label>
+                <input
+                  className="admin__input"
+                  type="number"
+                  placeholder="Leave empty for unlimited"
+                  value={form.stock}
+                  onChange={(e) => setForm({ ...form, stock: e.target.value })}
                 />
               </div>
             </div>
