@@ -1,96 +1,219 @@
-import { useState } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { getSales, getOrderStatus } from '../../utils/salesStorage';
+import useDocumentTitle from '../../hooks/useDocumentTitle';
+import { formatKSh } from '../../utils/currency';
 import './TrackOrder.css';
 
-const DEMO_ORDERS: Record<string, { status: number; date: string }> = {
-  'AVT-100001': { status: 3, date: '2026-05-20' },
-  'AVT-100002': { status: 2, date: '2026-05-21' },
-  'AVT-100003': { status: 1, date: '2026-05-22' },
-};
-
 const STEPS = [
-  { label: 'Order Placed', icon: '📋' },
-  { label: 'Processing', icon: '📦' },
-  { label: 'Shipped', icon: '🚚' },
-  { label: 'Delivered', icon: '✅' },
+  { label: 'Order Placed', desc: 'We received your order' },
+  { label: 'Processing', desc: 'Packing your items' },
+  { label: 'Shipped', desc: 'On the way to you' },
+  { label: 'Delivered', desc: 'Enjoy your purchase' },
 ];
 
 export default function TrackOrder() {
+  useDocumentTitle('Track Order');
   const [orderNumber, setOrderNumber] = useState('');
-  const [tracking, setTracking] = useState<{ status: number; date: string } | null>(null);
+  const [tracking, setTracking] = useState<ReturnType<typeof getSales>[number] | null>(null);
   const [searched, setSearched] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const autoRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
+
+  const allSales = useMemo(() => getSales(), [refreshKey]);
+  const demoIds = useMemo(() => allSales.slice(0, 3).map((s) => s.id), [allSales]);
+
+  const refreshTracking = useCallback(() => {
+    setRefreshKey((n) => n + 1);
+    setTracking((prev) => {
+      if (!prev) return null;
+      const updated = getSales().find((s) => s.id === prev.id);
+      return updated ?? prev;
+    });
+  }, []);
+
+  // Auto-refresh every 60s while tracking an order
+  useEffect(() => {
+    if (tracking) {
+      autoRef.current = setInterval(refreshTracking, 60000);
+      return () => clearInterval(autoRef.current);
+    }
+  }, [tracking, refreshTracking]);
 
   const handleTrack = (e: React.FormEvent) => {
     e.preventDefault();
     const normalized = orderNumber.trim().toUpperCase();
-    const result = DEMO_ORDERS[normalized];
-    setTracking(result ?? null);
+    // Always read fresh for a new search
+    const fresh = getSales();
+    const result = fresh.find((s) => s.id === normalized) ?? null;
+    setTracking(result);
     setSearched(true);
+    setRefreshKey((n) => n + 1);
   };
+
+  const handleDemoClick = (orderId: string) => {
+    setOrderNumber(orderId);
+    const fresh = getSales();
+    const result = fresh.find((s) => s.id === orderId) ?? null;
+    setTracking(result);
+    setSearched(true);
+    setRefreshKey((n) => n + 1);
+  };
+
+  const status = tracking ? getOrderStatus(tracking) : 0;
 
   return (
     <div className="track-order">
+      <div className="track-order__bg" />
+
       <div className="track-order__container">
-        <h1 className="track-order__title">Track Your Order</h1>
-        <p className="track-order__subtitle">
-          Enter your order number to check delivery status.
-        </p>
+        {/* Header */}
+        <div className="track-order__header">
+          <div className="track-order__header-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+          </div>
+          <h1 className="track-order__title">Track Your Order</h1>
+          <p className="track-order__subtitle">
+            Enter your AVYTRENDY order number to see real-time delivery updates.
+          </p>
+        </div>
 
-        <form className="track-order__form" onSubmit={handleTrack}>
-          <input
-            type="text"
-            className="track-order__input"
-            placeholder="e.g. AVT-100001"
-            value={orderNumber}
-            onChange={(e) => setOrderNumber(e.target.value)}
-            required
-          />
-          <button type="submit" className="btn btn--primary btn--lg">
-            Track Order
-          </button>
-        </form>
+        {/* Search Card */}
+        <div className="track-order__card">
+          <form className="track-order__form" onSubmit={handleTrack}>
+            <div className="track-order__input-group">
+              <svg className="track-order__input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="3"/>
+                <line x1="8" y1="8" x2="16" y2="8"/>
+                <line x1="8" y1="12" x2="16" y2="12"/>
+                <line x1="8" y1="16" x2="12" y2="16"/>
+              </svg>
+              <input
+                type="text"
+                className="track-order__input"
+                placeholder="Enter order number (e.g. AVT-100101)"
+                value={orderNumber}
+                onChange={(e) => setOrderNumber(e.target.value)}
+                required
+              />
+            </div>
+            <button type="submit" className="track-order__btn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8"/>
+                <path d="m21 21-4.35-4.35"/>
+              </svg>
+              Track Order
+            </button>
+          </form>
 
-        <p className="track-order__hint">
-          Try demo orders: <button onClick={() => { setOrderNumber('AVT-100001'); setTracking(DEMO_ORDERS['AVT-100001']); setSearched(true); }}>AVT-100001</button>,{' '}
-          <button onClick={() => { setOrderNumber('AVT-100002'); setTracking(DEMO_ORDERS['AVT-100002']); setSearched(true); }}>AVT-100002</button>,{' '}
-          <button onClick={() => { setOrderNumber('AVT-100003'); setTracking(DEMO_ORDERS['AVT-100003']); setSearched(true); }}>AVT-100003</button>
-        </p>
+          <div className="track-order__demos">
+            <span className="track-order__demos-label">Try a demo:</span>
+            {demoIds.map((id) => (
+              <button key={id} className="track-order__demo-chip" onClick={() => handleDemoClick(id)}>
+                {id}
+              </button>
+            ))}
+          </div>
+        </div>
 
+        {/* Not Found */}
         {searched && !tracking && (
-          <div className="track-order__not-found">
-            <p>Order not found. Please check your order number and try again.</p>
+          <div className="track-order__error">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="8" x2="12" y2="12"/>
+              <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <h3>Order Not Found</h3>
+            <p>We couldn't find an order with that number. Double-check and try again, or try one of the demo orders above.</p>
           </div>
         )}
 
+        {/* Tracking Result */}
         {tracking && (
           <div className="track-order__result">
-            <div className="track-order__info">
-              <span className="track-order__order-num">{orderNumber}</span>
-              <span className="track-order__order-date">Placed on {tracking.date}</span>
+            {/* Order Info Bar */}
+            <div className="track-order__meta">
+              <div className="track-order__meta-item">
+                <span className="track-order__meta-label">Order Number</span>
+                <span className="track-order__meta-value">{tracking.id}</span>
+              </div>
+              <div className="track-order__meta-divider" />
+              <div className="track-order__meta-item">
+                <span className="track-order__meta-label">Placed On</span>
+                <span className="track-order__meta-value">{new Date(tracking.date).toLocaleDateString('en-KE', { year: 'numeric', month: 'short', day: 'numeric' })}</span>
+              </div>
+              <div className="track-order__meta-divider" />
+              <div className="track-order__meta-item">
+                <span className="track-order__meta-label">Items</span>
+                <span className="track-order__meta-value">{tracking.itemCount} item{tracking.itemCount !== 1 ? 's' : ''}</span>
+              </div>
+              <div className="track-order__meta-divider" />
+              <div className="track-order__meta-item">
+                <span className="track-order__meta-label">Total</span>
+                <span className="track-order__meta-value">{formatKSh(tracking.total)}</span>
+              </div>
+              <button
+                className="track-order__refresh-btn"
+                onClick={refreshTracking}
+                title="Refresh status"
+                aria-label="Refresh order status"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="23 4 23 10 17 10"/>
+                  <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+                </svg>
+                Refresh
+              </button>
             </div>
 
+            {/* Progress Tracker */}
             <div className="track-order__progress">
               {STEPS.map((step, i) => {
                 const stepIndex = i + 1;
-                const done = stepIndex <= tracking.status;
-                const current = stepIndex === tracking.status;
+                const done = stepIndex <= status;
+                const current = stepIndex === status;
                 return (
                   <div
                     key={step.label}
                     className={`track-step ${done ? 'track-step--done' : ''} ${current ? 'track-step--current' : ''}`}
                   >
-                    <div className="track-step__icon">{step.icon}</div>
-                    <div className="track-step__label">{step.label}</div>
-                    <div className="track-step__bar-wrap">
-                      <div className={`track-step__bar ${done ? 'track-step__bar--filled' : ''}`} />
+                    <div className="track-step__node">
+                      {done && !current ? (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                      ) : current ? (
+                        <div className="track-step__pulse" />
+                      ) : (
+                        <div className="track-step__dot" />
+                      )}
                     </div>
+                    <div className="track-step__content">
+                      <span className="track-step__label">{step.label}</span>
+                      <span className="track-step__desc">{step.desc}</span>
+                    </div>
+                    {i < STEPS.length - 1 && (
+                      <div className={`track-step__line ${done ? 'track-step__line--filled' : ''}`} />
+                    )}
                   </div>
                 );
               })}
             </div>
 
-            {tracking.status === 4 && (
+            {/* Delivered Banner */}
+            {status === 4 && (
               <div className="track-order__delivered">
-                Your order has been delivered. Thank you for shopping with AVYTRENDY!
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                  <polyline points="22 4 12 14.01 9 11.01"/>
+                </svg>
+                <div>
+                  <strong>Delivery Confirmed</strong>
+                  <span>Your order has been delivered. Thank you for shopping with AVYTRENDY!</span>
+                </div>
               </div>
             )}
           </div>

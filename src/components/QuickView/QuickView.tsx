@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import type { Product } from '../../types';
 import { useCart } from '../../context/CartContext';
 import { useToast } from '../../context/ToastContext';
 import { formatKSh } from '../../utils/currency';
+import { getProductBadge } from '../../data/products';
 import './QuickView.css';
 
 interface Props {
@@ -18,6 +19,7 @@ export default function QuickView({ product, onClose }: Props) {
   const [selectedColor, setSelectedColor] = useState(product.colors[0] ?? '');
   const [activeImage, setActiveImage] = useState(0);
   const [added, setAdded] = useState(false);
+  const badge = useMemo(() => getProductBadge(product), [product]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -50,6 +52,11 @@ export default function QuickView({ product, onClose }: Props) {
           <div className="qv-gallery">
             <div className="qv-gallery__main">
               <img src={product.images[activeImage]} alt={product.name} />
+              {badge && (
+                <span className={`qv-gallery__badge qv-gallery__badge--${badge.type}`}>
+                  {badge.label}
+                </span>
+              )}
             </div>
             <div className="qv-gallery__thumbs">
               {product.images.map((img, i) => (

@@ -1,20 +1,42 @@
 import { useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
+import { useToast } from '../../context/ToastContext';
 import { recordSale } from '../../utils/salesStorage';
+import useDocumentTitle from '../../hooks/useDocumentTitle';
 import { formatKSh, FREE_SHIPPING_THRESHOLD, SHIPPING_COST } from '../../utils/currency';
 import './Checkout.css';
 
 export default function Checkout() {
+  useDocumentTitle('Checkout');
   const { items, total, clearCart, removeItem } = useCart();
+  const { addToast } = useToast();
   const [placed, setPlaced] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<'mpesa' | 'cod'>('mpesa');
+  const [clearConfirm, setClearConfirm] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [mpesaPhone, setMpesaPhone] = useState('');
+  const [phoneError, setPhoneError] = useState('');
   const orderNumber = useRef(`AVT-${Math.floor(Math.random() * 900000) + 100000}`);
 
   const shipping = total >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_COST;
   const grandTotal = total + shipping;
 
+  const KENYA_PHONE_RE = /^(?:\+?254|0)(7\d{8})$/;
+
   const handlePlaceOrder = (e: React.FormEvent) => {
     e.preventDefault();
+    setPhoneError('');
+
+    if (paymentMethod === 'mpesa') {
+      const raw = mpesaPhone.trim().replace(/[\s-]/g, '');
+      if (!KENYA_PHONE_RE.test(raw)) {
+        setPhoneError('Enter a valid Kenyan phone number (e.g. +254 712 345 678 or 0712 345 678)');
+        return;
+      }
+    }
+
+    setSubmitting(true);
     recordSale({
       id: orderNumber.current,
       date: new Date().toISOString(),
@@ -94,14 +116,8 @@ export default function Checkout() {
                 <input type="text" placeholder="Postal code" required className="checkout__input" />
               </div>
               <div className="checkout__row">
-                <select required className="checkout__input checkout__select">
-                  <option value="">Select country</option>
+                <select required className="checkout__input checkout__select" defaultValue="KE">
                   <option value="KE">Kenya</option>
-                  <option value="US">United States</option>
-                  <option value="CA">Canada</option>
-                  <option value="UK">United Kingdom</option>
-                  <option value="AU">Australia</option>
-                  <option value="DE">Germany</option>
                 </select>
               </div>
             </fieldset>
@@ -111,21 +127,45 @@ export default function Checkout() {
               <legend className="checkout__section-title">Payment Method</legend>
               <div className="checkout__radio-group">
                 <label className="checkout__radio">
-                  <input type="radio" name="payment" value="mpesa" defaultChecked />
+                  <input
+                    type="radio"
+                    name="payment"
+                    value="mpesa"
+                    checked={paymentMethod === 'mpesa'}
+                    onChange={() => setPaymentMethod('mpesa')}
+                  />
                   <span>M-Pesa</span>
                 </label>
                 <label className="checkout__radio">
-                  <input type="radio" name="payment" value="cod" />
+                  <input
+                    type="radio"
+                    name="payment"
+                    value="cod"
+                    checked={paymentMethod === 'cod'}
+                    onChange={() => setPaymentMethod('cod')}
+                  />
                   <span>Cash on Delivery</span>
                 </label>
               </div>
-              <div className="checkout__row" style={{ marginTop: 12 }}>
-                <input type="tel" placeholder="M-Pesa phone number (e.g. +254 712 345 678)" required className="checkout__input" />
-              </div>
+              {paymentMethod === 'mpesa' && (
+                <div className="checkout__row" style={{ marginTop: 12 }}>
+                  <input
+                    type="tel"
+                    placeholder="M-Pesa phone number (e.g. +254 712 345 678)"
+                    required
+                    className="checkout__input"
+                    value={mpesaPhone}
+                    onChange={(e) => { setMpesaPhone(e.target.value); setPhoneError(''); }}
+                  />
+                  {phoneError && (
+                    <span style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: 4, display: 'block' }}>{phoneError}</span>
+                  )}
+                </div>
+              )}
             </fieldset>
 
-            <button type="submit" className="btn btn--primary btn--lg btn--full">
-              Place Order — {formatKSh(grandTotal)}
+            <button type="submit" className="btn btn--primary btn--lg btn--full" disabled={submitting}>
+              {submitting ? 'Placing Order...' : `Place Order — ${formatKSh(grandTotal)}`}
             </button>
           </form>
 
@@ -134,8 +174,15 @@ export default function Checkout() {
             <div className="checkout-summary">
               <div className="checkout-summary__header">
                 <h3 className="checkout-summary__title">Your Order</h3>
-                <button className="checkout-summary__clear" onClick={clearCart} aria-label="Clear all items">
-                  Clear All
+                <button
+                  className={`checkout-summary__clear ${clearConfirm ? 'checkout-summary__clear--confirm' : ''}`}
+                  onClick={() => {
+                    if (clearConfirm) { clearCart(); addToast('Cart cleared'); setClearConfirm(false); }
+                    else { setClearConfirm(true); setTimeout(() => setClearConfirm(false), 3000); }
+                  }}
+                  aria-label="Clear all items"
+                >
+                  {clearConfirm ? 'Confirm?' : 'Clear All'}
                 </button>
               </div>
               <div className="checkout-summary__items">
@@ -156,7 +203,7 @@ export default function Checkout() {
                     </span>
                     <button
                       className="checkout-summary__item-remove"
-                      onClick={() => removeItem(item.product.id, item.size, item.color)}
+                      onClick={() => { removeItem(item.product.id, item.size, item.color); addToast(`Removed ${item.product.name} from cart`); }}
                       aria-label={`Remove ${item.product.name}`}
                     >
                       &times;

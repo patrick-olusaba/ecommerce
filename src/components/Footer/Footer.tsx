@@ -61,17 +61,19 @@ export default function Footer() {
           <Link to="/shop/watches" className="footer__link">Watches</Link>
           <Link to="/shop/dresses" className="footer__link">Dresses</Link>
           <Link to="/shop/pants" className="footer__link">Pants</Link>
-          <Link to="/shop/blouses" className="footer__link">Blouses</Link>
+          <Link to="/shop/blouses" className="footer__link">Shirts</Link>
           <Link to="/shop/tshirts" className="footer__link">T-Shirts</Link>
+          <Link to="/shop/sweaters" className="footer__link">Sweaters</Link>
         </div>
 
         <div className="footer__col">
           <h4 className="footer__heading">WEBSITE</h4>
           <Link to="/" className="footer__link">Home</Link>
+          <Link to="/about" className="footer__link">About Us</Link>
+          <Link to="/contact" className="footer__link">Contact</Link>
           <Link to="/track-order" className="footer__link">Track Order</Link>
-          <a href="#" className="footer__link">Privacy Policy</a>
-          <a href="#" className="footer__link">Become a Seller</a>
-          <a href="#" className="footer__link">Create Your Store</a>
+          <Link to="/faq" className="footer__link">FAQ</Link>
+          <Link to="/privacy" className="footer__link">Privacy Policy</Link>
         </div>
 
         <div className="footer__col">
@@ -100,7 +102,7 @@ export default function Footer() {
 
       <div className="footer__bottom">
         <div className="footer__bottom-inner">
-          <p className="footer__copy">Copyright 2025 &copy; AVYTRENDY All Right Reserved.</p>
+          <p className="footer__copy">Copyright 2026 &copy; AVYTRENDY All Right Reserved.</p>
           <div className="footer__payments">
             <span className="footer__payment-icon">VISA</span>
             <span className="footer__payment-icon">MC</span>

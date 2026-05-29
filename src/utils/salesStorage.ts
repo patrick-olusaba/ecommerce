@@ -13,6 +13,31 @@ export interface Sale {
   items: SaleItem[];
   total: number;
   itemCount: number;
+  status?: number;
+}
+
+export function updateOrderStatus(orderId: string, status: number): void {
+  const sales = getAllSales();
+  const order = sales.find((s) => s.id === orderId);
+  if (order) {
+    order.status = status;
+    saveAllSales(sales);
+  }
+}
+
+export function getOrderStatus(order: Sale): number {
+  // Admin-set status takes priority
+  if (order.status) return order.status;
+
+  // Otherwise derive from time
+  const now = Date.now();
+  const orderTime = new Date(order.date).getTime();
+  const hoursSince = (now - orderTime) / (1000 * 60 * 60);
+
+  if (hoursSince < 1) return 1;       // Order Placed
+  if (hoursSince < 24) return 2;      // Processing
+  if (hoursSince < 48) return 3;      // Shipped
+  return 4;                            // Delivered
 }
 
 function getAllSales(): Sale[] {

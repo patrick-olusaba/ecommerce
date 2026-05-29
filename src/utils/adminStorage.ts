@@ -17,6 +17,14 @@ export function saveAdminProduct(product: Product): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
 }
 
+export function updateAdminProduct(id: number, updates: Partial<Product>): void {
+  const products = getAdminProducts();
+  const index = products.findIndex((p) => p.id === id);
+  if (index === -1) return;
+  products[index] = { ...products[index], ...updates };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
+}
+
 export function deleteAdminProduct(id: number): void {
   const products = getAdminProducts().filter((p) => p.id !== id);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(products));

@@ -75,6 +75,11 @@
   background: #fef2f2;
 }
 
+.cart-page__clear-all--confirm {
+  background: #fef2f2;
+  font-weight: 600;
+}
+
 /* Layout */
 .cart-page__layout {
   display: grid;

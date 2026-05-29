@@ -1,15 +1,20 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
+import { useToast } from '../../context/ToastContext';
+import useDocumentTitle from '../../hooks/useDocumentTitle';
 import { formatKSh, FREE_SHIPPING_THRESHOLD, SHIPPING_COST } from '../../utils/currency';
 import CartItemRow from '../../components/CartItem/CartItem';
 import EmptyState from '../../components/EmptyState/EmptyState';
 import './Cart.css';
 
 export default function Cart() {
+  useDocumentTitle('Cart');
   const { items, itemCount, total, clearCart } = useCart();
+  const { addToast } = useToast();
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discount: number } | null>(null);
+  const [clearConfirm, setClearConfirm] = useState(false);
 
   const shipping = total >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_COST;
   const discountAmount = appliedCoupon ? (total * appliedCoupon.discount) / 100 : 0;
@@ -50,8 +55,14 @@ export default function Cart() {
                 <path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>
               </svg>
             </Link>
-            <button className="cart-page__clear-all" onClick={clearCart}>
-              Clear All
+            <button
+              className={`cart-page__clear-all ${clearConfirm ? 'cart-page__clear-all--confirm' : ''}`}
+              onClick={() => {
+                if (clearConfirm) { clearCart(); addToast('Cart cleared'); setClearConfirm(false); }
+                else { setClearConfirm(true); setTimeout(() => setClearConfirm(false), 3000); }
+              }}
+            >
+              {clearConfirm ? 'Confirm?' : 'Clear All'}
             </button>
           </div>
         </div>

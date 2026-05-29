@@ -1,0 +1,127 @@
+.search-page {
+  min-height: 100vh;
+  background: #fff;
+}
+
+.search-page__container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 48px 24px 64px;
+}
+
+.search-page__hero {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.search-page__title {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin: 0 0 20px;
+  letter-spacing: -0.02em;
+}
+
+/* Search Form */
+.search-page__form {
+  display: flex;
+  max-width: 580px;
+  margin: 0 auto;
+  position: relative;
+}
+
+.search-page__form-icon {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.search-page__input {
+  flex: 1;
+  padding: 14px 16px 14px 44px;
+  border: 2px solid #e5e7eb;
+  border-right: none;
+  border-radius: 12px 0 0 12px;
+  font-size: 0.92rem;
+  color: #1e293b;
+  outline: none;
+  transition: border-color 0.15s;
+  font-family: inherit;
+  background: #fff;
+}
+
+.search-page__input:focus {
+  border-color: #c9a96e;
+}
+
+.search-page__btn {
+  padding: 14px 24px;
+  background: #1a1a2e;
+  color: #fff;
+  border: none;
+  border-radius: 0 12px 12px 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.search-page__btn:hover {
+  background: #2d2d44;
+}
+
+/* Empty state (no query yet) */
+.search-page__empty-state {
+  text-align: center;
+  padding: 80px 0;
+  color: #94a3b8;
+}
+
+.search-page__empty-state svg {
+  margin-bottom: 16px;
+}
+
+.search-page__empty-state h2 {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #64748b;
+  margin: 0 0 8px;
+}
+
+.search-page__empty-state p {
+  font-size: 0.9rem;
+  margin: 0;
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+/* Result count */
+.search-page__count {
+  font-size: 0.85rem;
+  color: #94a3b8;
+  margin: 0 0 20px;
+}
+
+/* Product grid (reused) */
+.product-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 24px;
+}
+
+@media (max-width: 768px) {
+  .search-page__container { padding: 32px 16px 48px; }
+  .search-page__title { font-size: 1.35rem; }
+  .product-grid { grid-template-columns: repeat(2, 1fr); gap: 14px; }
+}
+
+@media (max-width: 480px) {
+  .search-page__form { flex-direction: column; }
+  .search-page__input { border-right: 2px solid #e5e7eb; border-radius: 12px; margin-bottom: 8px; }
+  .search-page__btn { border-radius: 12px; }
+}

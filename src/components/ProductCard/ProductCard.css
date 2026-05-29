@@ -73,31 +73,37 @@
   position: absolute;
   top: 12px;
   left: 12px;
-  background: var(--color-text);
   color: #fff;
   font-size: 0.68rem;
   font-weight: 600;
-  letter-spacing: 0.6px;
+  letter-spacing: 0.5px;
   text-transform: uppercase;
   padding: 4px 10px;
   border-radius: 4px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
   z-index: 1;
 }
 
-.product-card__sale-badge {
-  position: absolute;
-  top: 12px;
-  right: 12px;
+.product-card__badge--sale {
   background: #ef4444;
-  color: #fff;
-  font-size: 0.68rem;
+  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.3);
+  right: 12px;
+  left: auto;
   font-weight: 700;
-  letter-spacing: 0.5px;
-  padding: 4px 10px;
-  border-radius: 4px;
-  box-shadow: 0 2px 6px rgba(239,68,68,0.3);
-  z-index: 1;
+}
+
+.product-card__badge--bestseller {
+  background: #1a1a2e;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.product-card__badge--new {
+  background: #16a34a;
+  box-shadow: 0 2px 6px rgba(22, 163, 74, 0.3);
+}
+
+.product-card__badge--trending {
+  background: #f97316;
+  box-shadow: 0 2px 6px rgba(249, 115, 22, 0.3);
 }
 
 /* Hover Actions */

@@ -1,9 +1,11 @@
 import { useWishlist } from '../../context/WishlistContext';
+import useDocumentTitle from '../../hooks/useDocumentTitle';
 import ProductCard from '../../components/ProductCard/ProductCard';
 import EmptyState from '../../components/EmptyState/EmptyState';
 import './Wishlist.css';
 
 export default function Wishlist() {
+  useDocumentTitle('Wishlist');
   const { items, count } = useWishlist();
 
   if (count === 0) {

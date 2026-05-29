@@ -10,8 +10,8 @@ interface AdminAuthContextType {
 
 const AdminAuthContext = createContext<AdminAuthContextType | undefined>(undefined);
 
-const DEMO_USERNAME = 'admin';
-const DEMO_PASSWORD = 'admin123';
+const DEMO_USERNAME = import.meta.env.VITE_ADMIN_USERNAME || 'admin';
+const DEMO_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD || 'admin123';
 
 function getStoredAuth(): boolean {
   try {

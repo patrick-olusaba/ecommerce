@@ -138,6 +138,11 @@
   background: #fef2f2;
 }
 
+.checkout-summary__clear--confirm {
+  background: #fef2f2;
+  font-weight: 600;
+}
+
 .checkout-summary__items {
   display: flex;
   flex-direction: column;

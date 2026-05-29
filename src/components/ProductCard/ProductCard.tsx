@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import type { Product } from '../../types';
@@ -7,6 +7,7 @@ import { useWishlist } from '../../context/WishlistContext';
 import { useCompare } from '../../context/CompareContext';
 import { useToast } from '../../context/ToastContext';
 import { formatKSh } from '../../utils/currency';
+import { getProductBadge } from '../../data/products';
 import QuickView from '../QuickView/QuickView';
 import './ProductCard.css';
 
@@ -22,8 +23,9 @@ export default function ProductCard({ product }: Props) {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [hovered, setHovered] = useState(false);
   const [quickViewOpen, setQuickViewOpen] = useState(false);
+  const badge = useMemo(() => getProductBadge(product), [product]);
   const stars = Array.from({ length: 5 }, (_, i) => i < Math.floor(product.rating));
-  const hasSale = product.originalPrice && product.originalPrice > product.price;
+  const hasSale = badge?.type === 'sale';
   const hasAltImage = product.images.length > 1;
   const inWishlist = isInWishlist(product.id);
   const inCompare = isInCompare(product.id);
@@ -78,8 +80,11 @@ export default function ProductCard({ product }: Props) {
               loading="lazy"
             />
           )}
-          {product.badge && <span className="product-card__badge">{product.badge}</span>}
-          {hasSale && <span className="product-card__sale-badge">Sale</span>}
+          {badge && (
+            <span className={`product-card__badge product-card__badge--${badge.type}`}>
+              {badge.label}
+            </span>
+          )}
           <div className="product-card__actions">
             <button
               className={`product-card__compare-btn ${inCompare ? 'product-card__compare-btn--active' : ''}`}

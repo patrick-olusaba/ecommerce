@@ -11,6 +11,13 @@ import EmptyState from './components/EmptyState/EmptyState';
 import Home from './pages/Home/Home';
 import Shop from './pages/Shop/Shop';
 import Wishlist from './pages/Wishlist/Wishlist';
+import About from './pages/About/About';
+import Contact from './pages/Contact/Contact';
+import FAQ from './pages/FAQ/FAQ';
+import Search from './pages/Search/Search';
+import Auth from './pages/Auth/Auth';
+import Privacy from './pages/Privacy/Privacy';
+import SizeGuide from './pages/SizeGuide/SizeGuide';
 import Product from './pages/Product/Product';
 import Cart from './pages/Cart/Cart';
 import Checkout from './pages/Checkout/Checkout';
@@ -103,10 +110,23 @@ function ToastContainer() {
   );
 }
 
-export default function App() {
+function StoreLayout() {
+  const location = useLocation();
+  const isAdmin = location.pathname.startsWith('/admin');
+
+  if (isAdmin) {
+    return (
+      <main className="main">
+        <Routes>
+          <Route path="/admin" element={<Admin />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </main>
+    );
+  }
+
   return (
-    <div className="app">
-      <ScrollToTopOnMount />
+    <>
       <Header />
       <CartDrawer />
       <ToastContainer />
@@ -116,11 +136,17 @@ export default function App() {
           <Route path="/shop" element={<Shop />} />
           <Route path="/shop/:category" element={<Shop />} />
           <Route path="/wishlist" element={<Wishlist />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/contact" element={<Contact />} />
+          <Route path="/faq" element={<FAQ />} />
+          <Route path="/search" element={<Search />} />
+          <Route path="/auth" element={<Auth />} />
+          <Route path="/privacy" element={<Privacy />} />
+          <Route path="/size-guide" element={<SizeGuide />} />
           <Route path="/product/:id" element={<Product />} />
           <Route path="/cart" element={<Cart />} />
           <Route path="/checkout" element={<Checkout />} />
           <Route path="/track-order" element={<TrackOrder />} />
-          <Route path="/admin" element={<Admin />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
@@ -128,6 +154,15 @@ export default function App() {
       <WhatsAppButton />
       <ScrollToTop />
       <CompareBar />
+    </>
+  );
+}
+
+export default function App() {
+  return (
+    <div className="app">
+      <ScrollToTopOnMount />
+      <StoreLayout />
     </div>
   );
 }

@@ -1,18 +1,23 @@
 import { useParams, Link } from 'react-router-dom';
-import { useState, useRef, useCallback, useEffect } from 'react';
-import { getProductById, getRelatedProducts } from '../../data/products';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import { getProductById, getRelatedProducts, getProductBadge } from '../../data/products';
 import { useCart } from '../../context/CartContext';
 import { useWishlist } from '../../context/WishlistContext';
 import { useToast } from '../../context/ToastContext';
+import useDocumentTitle from '../../hooks/useDocumentTitle';
 import ProductCard from '../../components/ProductCard/ProductCard';
 import RecentlyViewed from '../../components/RecentlyViewed/RecentlyViewed';
 import useRecentlyViewed from '../../hooks/useRecentlyViewed';
 import { formatKSh, FREE_SHIPPING_THRESHOLD } from '../../utils/currency';
+import { getReviews, getReviewStats, addReview } from '../../utils/reviewStorage';
+import { addDocument } from '../../firebase/firestore';
+import type { Review } from '../../utils/reviewStorage';
 import './Product.css';
 
 export default function Product() {
   const { id } = useParams();
   const product = id ? getProductById(Number(id)) : undefined;
+  useDocumentTitle(product?.name ?? 'Product');
   const { addItem } = useCart();
   const { isInWishlist, toggleWishlist } = useWishlist();
   const { addToast } = useToast();
@@ -48,12 +53,35 @@ export default function Product() {
     );
   }
 
+  const [reviews, setReviews] = useState<Review[]>(() => getReviews(product.id));
+  const [reviewForm, setReviewForm] = useState({ name: '', rating: 5, comment: '' });
+  const [reviewSubmitted, setReviewSubmitted] = useState(false);
+
+  const reviewStats = useMemo(() => {
+    const userStats = getReviewStats(product.id);
+    if (userStats.totalReviews === 0) {
+      return { avgRating: product.rating, totalReviews: product.reviews };
+    }
+    // Blend built-in reviews with user reviews
+    const totalBuiltInRating = product.rating * product.reviews;
+    const totalUserRating = userStats.avgRating * userStats.totalReviews;
+    const combinedTotal = product.reviews + userStats.totalReviews;
+    return {
+      avgRating: Math.round(((totalBuiltInRating + totalUserRating) / combinedTotal) * 10) / 10,
+      totalReviews: combinedTotal,
+    };
+  }, [product.id, product.rating, product.reviews, reviewSubmitted]);
+
+  const badge = useMemo(() => getProductBadge(product), [product]);
+
   useEffect(() => {
     addToRecentlyViewed(product.id);
   }, [product.id, addToRecentlyViewed]);
 
   const related = getRelatedProducts(product);
-  const stars = Array.from({ length: 5 }, (_, i) => i < Math.floor(product.rating));
+  const displayRating = reviewStats.avgRating || product.rating;
+  const displayReviews = reviewStats.totalReviews || product.reviews;
+  const stars = Array.from({ length: 5 }, (_, i) => i < Math.floor(displayRating));
   const inWishlist = isInWishlist(product.id);
 
   const handleWishlistToggle = () => {
@@ -68,12 +96,31 @@ export default function Product() {
     setTimeout(() => setAdded(false), 2000);
   };
 
+  const handleReviewSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reviewForm.name.trim() || !reviewForm.comment.trim()) return;
+    const newReview: Review = {
+      id: `REV-${Date.now()}`,
+      productId: product.id,
+      name: reviewForm.name.trim(),
+      rating: reviewForm.rating,
+      comment: reviewForm.comment.trim(),
+      date: new Date().toISOString(),
+    };
+    addReview(newReview);
+    await addDocument('reviews', newReview);
+    setReviews(getReviews(product.id));
+    setReviewForm({ name: '', rating: 5, comment: '' });
+    setReviewSubmitted(true);
+    addToast('Review submitted! Thank you for your feedback.');
+  };
+
   return (
     <div className="product-page">
       <div className="product-page__breadcrumb">
         <Link to="/">Home</Link>
         <span>/</span>
-        <Link to={`/shop/${product.category}`}>{product.category}</Link>
+        <Link to={`/shop/${product.category}`}>{product.category === 'blouses' ? 'Shirts' : product.category}</Link>
         <span>/</span>
         <span>{product.name}</span>
       </div>
@@ -94,6 +141,11 @@ export default function Product() {
               className={`product-gallery__image ${zooming ? 'product-gallery__image--zoomed' : ''}`}
               style={zooming ? { transformOrigin: zoomOrigin } : undefined}
             />
+            {badge && (
+              <span className={`product-gallery__badge product-gallery__badge--${badge.type}`}>
+                {badge.label}
+              </span>
+            )}
           </div>
           <div className="product-gallery__thumbs">
             {product.images.map((img, i) => (
@@ -122,7 +174,7 @@ export default function Product() {
               ))}
             </span>
             <span className="product-info__reviews">
-              {product.rating} ({product.reviews} reviews)
+              {displayRating} ({displayReviews} reviews)
             </span>
           </div>
 
@@ -225,6 +277,92 @@ export default function Product() {
           {added ? 'Added!' : 'Add to Cart'}
         </button>
       </div>
+
+      {/* Customer Reviews */}
+      <section className="product-reviews">
+        <h2 className="product-reviews__title">Customer Reviews</h2>
+
+        {/* Review Form */}
+        <div className="product-reviews__form-card">
+          <h3>Write a Review</h3>
+          <form className="product-reviews__form" onSubmit={handleReviewSubmit}>
+            <div className="product-reviews__row">
+              <div className="product-reviews__field">
+                <label>Your Name *</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Jane Wanjiku"
+                  value={reviewForm.name}
+                  onChange={(e) => setReviewForm({ ...reviewForm, name: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="product-reviews__field">
+                <label>Rating</label>
+                <div className="product-reviews__star-select">
+                  {[5, 4, 3, 2, 1].map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      className={`product-reviews__star-btn ${n <= reviewForm.rating ? 'product-reviews__star-btn--active' : ''}`}
+                      onClick={() => setReviewForm({ ...reviewForm, rating: n })}
+                      aria-label={`${n} star${n !== 1 ? 's' : ''}`}
+                    >
+                      ★
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="product-reviews__field">
+              <label>Your Review *</label>
+              <textarea
+                placeholder="Share your experience with this product..."
+                value={reviewForm.comment}
+                onChange={(e) => setReviewForm({ ...reviewForm, comment: e.target.value })}
+                required
+                rows={3}
+              />
+            </div>
+            <button type="submit" className="product-reviews__submit">
+              Submit Review
+            </button>
+          </form>
+        </div>
+
+        {/* Reviews List */}
+        {reviews.length > 0 ? (
+          <div className="product-reviews__list">
+            {reviews.map((review) => (
+              <div key={review.id} className="product-reviews__item">
+                <div className="product-reviews__item-header">
+                  <div className="product-reviews__avatar">
+                    {review.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <span className="product-reviews__name">{review.name}</span>
+                    <span className="product-reviews__date">
+                      {new Date(review.date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+                    </span>
+                  </div>
+                  <div className="product-reviews__item-stars">
+                    {Array.from({ length: 5 }, (_, i) => (
+                      <span key={i} className={i < review.rating ? 'product-reviews__star--filled' : 'product-reviews__star--empty'}>
+                        ★
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <p className="product-reviews__comment">{review.comment}</p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="product-reviews__empty">
+            No reviews yet. Be the first to review this product!
+          </p>
+        )}
+      </section>
 
       {/* Related Products */}
       {related.length > 0 && (

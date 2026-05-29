@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import type { CartItem as CartItemType } from '../../types';
 import { useCart } from '../../context/CartContext';
+import { useToast } from '../../context/ToastContext';
 import { formatKSh } from '../../utils/currency';
 import './CartItem.css';
 
@@ -10,7 +11,22 @@ interface Props {
 
 export default function CartItemRow({ item }: Props) {
   const { updateQuantity, removeItem } = useCart();
+  const { addToast } = useToast();
   const { product } = item;
+
+  const handleRemove = () => {
+    removeItem(product.id, item.size, item.color);
+    addToast(`Removed ${product.name} from cart`);
+  };
+
+  const handleDecrease = () => {
+    if (item.quantity <= 1) {
+      removeItem(product.id, item.size, item.color);
+      addToast(`Removed ${product.name} from cart`);
+    } else {
+      updateQuantity(product.id, item.size, item.color, item.quantity - 1);
+    }
+  };
 
   return (
     <tr className="cart-item">
@@ -29,7 +45,7 @@ export default function CartItemRow({ item }: Props) {
       <td className="cart-item__qty-cell">
         <div className="cart-item__qty">
           <button
-            onClick={() => updateQuantity(product.id, item.size, item.color, item.quantity - 1)}
+            onClick={handleDecrease}
             className="cart-item__qty-btn"
             aria-label="Decrease"
           >
@@ -50,7 +66,7 @@ export default function CartItemRow({ item }: Props) {
       </td>
       <td className="cart-item__remove-cell">
         <button
-          onClick={() => removeItem(product.id, item.size, item.color)}
+          onClick={handleRemove}
           className="cart-item__remove"
           aria-label="Remove item"
         >

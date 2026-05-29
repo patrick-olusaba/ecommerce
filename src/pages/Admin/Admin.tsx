@@ -1,16 +1,43 @@
-import { useState } from 'react';
-import { getAdminProducts, saveAdminProduct, deleteAdminProduct, getNextAdminId } from '../../utils/adminStorage';
+import { useState, useEffect } from 'react';
+import { getAdminProducts, saveAdminProduct, updateAdminProduct, deleteAdminProduct, getNextAdminId } from '../../utils/adminStorage';
 import { getAllProducts } from '../../data/products';
 import { useAdminAuth } from '../../context/AdminAuthContext';
-import { getSales, getTodaySales, getWeekSales, getMonthSales, getSalesTotal, getItemsSold, getDailyRevenue, getTopProducts, getSalesForPeriod } from '../../utils/salesStorage';
+import useDocumentTitle from '../../hooks/useDocumentTitle';
+import { getSales, getTodaySales, getWeekSales, getMonthSales, getSalesTotal, getItemsSold, getDailyRevenue, getTopProducts, getSalesForPeriod, getOrderStatus, updateOrderStatus } from '../../utils/salesStorage';
 import { formatKSh } from '../../utils/currency';
-import type { Product } from '../../types';
+import { getDocuments } from '../../firebase/firestore';
+import type { Product, Sale } from '../../types';
 import './Admin.css';
+
+function exportCSV(sales: Sale[]) {
+  const header = 'Order ID,Date,Items,Total,Status';
+  const rows = sales.map((s) => {
+    const statusLabels = ['', 'Placed', 'Processing', 'Shipped', 'Delivered'];
+    return `${s.id},"${new Date(s.date).toLocaleDateString()}",${s.itemCount},${s.total},${statusLabels[getOrderStatus(s)]}`;
+  });
+  const csv = [header, ...rows].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `avytrendy-sales-${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function getLocalSubscribers(): { email: string; date: string }[] {
+  try {
+    const raw = localStorage.getItem('avytrendy_subscribers');
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
 
 const emptyForm = {
   name: '',
   category: 'watches' as Product['category'],
   price: '',
+  originalPrice: '',
+  badge: '',
   description: '',
   sizes: '',
   colors: '',
@@ -21,8 +48,15 @@ const emptyForm = {
 
 const CATEGORIES = ['watches', 'dresses', 'pants', 'blouses', 'tshirts', 'sweaters'] as const;
 
+const categoryLabel: Record<string, string> = { blouses: 'Shirts' };
+
+function catDisplay(cat: string) {
+  return categoryLabel[cat] || cat.charAt(0).toUpperCase() + cat.slice(1);
+}
+
 /* ===== Login ===== */
 function AdminLogin() {
+  useDocumentTitle('Admin Login');
   const { login } = useAdminAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -86,13 +120,41 @@ function AdminLogin() {
 
 /* ===== Dashboard ===== */
 function Dashboard() {
+  useDocumentTitle('Admin');
   const { logout } = useAdminAuth();
   const [adminProducts, setAdminProducts] = useState<Product[]>(getAdminProducts());
   const [form, setForm] = useState(emptyForm);
   const [images, setImages] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
+  const [existingImages, setExistingImages] = useState<string[]>([]);
   const [message, setMessage] = useState('');
-  const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'add' | 'sales'>('overview');
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'add' | 'sales' | 'orders' | 'subscribers' | 'messages' | 'reviews'>('overview');
+  const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
+  const [expandedMessage, setExpandedMessage] = useState<string | null>(null);
+  const [salesRefresh, setSalesRefresh] = useState(0);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [firestoreSubs, setFirestoreSubs] = useState<{ email: string; date: string }[]>([]);
+  const [firestoreMessages, setFirestoreMessages] = useState<{ id: string; name: string; email: string; subject: string; message: string; date: string }[]>([]);
+  const [firestoreReviews, setFirestoreReviews] = useState<{ id: string; productId: number; name: string; rating: number; comment: string; date: string }[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      const subs = await getDocuments<{ email: string; createdAt: string }>('subscribers');
+      setFirestoreSubs(subs.map((s) => ({ email: s.email, date: s.createdAt })));
+      const msgs = await getDocuments<{ id: string; name: string; email: string; subject: string; message: string; createdAt: string }>('messages');
+      setFirestoreMessages(msgs.map((m) => ({ id: m.id, name: m.name, email: m.email, subject: m.subject, message: m.message, date: m.createdAt })));
+      const revs = await getDocuments<{ id: string; productId: number; name: string; rating: number; comment: string; createdAt: string }>('reviews');
+      setFirestoreReviews(revs.map((r) => ({ id: r.id, productId: r.productId, name: r.name, rating: r.rating, comment: r.comment, date: r.createdAt })));
+    })();
+  }, [activeTab]);
+
+  const localSubs = getLocalSubscribers();
+  const subscribersList = [...localSubs, ...firestoreSubs.filter((fs) => !localSubs.some((ls) => ls.email === fs.email))];
+  const localMessages = JSON.parse(localStorage.getItem('avytrendy_contact_messages') || '[]');
+  const messagesList = [...localMessages, ...firestoreMessages.filter((fm) => !localMessages.some((lm: { id: string }) => lm.id === fm.id))];
+  const localReviews = JSON.parse(localStorage.getItem('avytrendy_reviews') || '[]');
+  const reviewsList = [...localReviews, ...firestoreReviews.filter((fr: { id: string }) => !localReviews.some((lr: { id: string }) => lr.id === fr.id))];
 
   const allProducts = getAllProducts();
   const adminOnly = adminProducts;
@@ -121,6 +183,14 @@ function Dashboard() {
   const topProducts = getTopProducts(5);
   const recentOrders = [...allSales].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5);
 
+  const today = new Date().toISOString().split('T')[0];
+  const badgeCounts = {
+    activeOrders: allSales.filter((s) => getOrderStatus(s) < 4).length,
+    ordersToday: allSales.filter((s) => s.date.startsWith(today)).length,
+    unreadMessages: messagesList.filter((m: { date: string }) => m.date.startsWith(today)).length,
+    newSubsToday: subscribersList.filter((s) => s.date.startsWith(today)).length,
+  };
+
   const categoryCounts = CATEGORIES.map((cat) => ({
     cat,
     total: allProducts.filter((p) => p.category === cat).length,
@@ -139,30 +209,52 @@ function Dashboard() {
     setPreviews(files.map((f) => URL.createObjectURL(f)));
   };
 
-  const convertToBase64 = (file: File): Promise<string> =>
+  const MAX_DIM = 800;
+  const JPEG_QUALITY = 0.7;
+
+  const compressImage = (file: File): Promise<string> =>
     new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          let { width, height } = img;
+          if (width > MAX_DIM || height > MAX_DIM) {
+            const ratio = Math.min(MAX_DIM / width, MAX_DIM / height);
+            width = Math.round(width * ratio);
+            height = Math.round(height * ratio);
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) { reject(new Error('Canvas context unavailable')); return; }
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', JPEG_QUALITY));
+        };
+        img.onerror = reject;
+        img.src = reader.result as string;
+      };
       reader.onerror = reject;
       reader.readAsDataURL(file);
     });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name || !form.price || images.length === 0) {
-      setMessage('Please fill in name, price, and upload at least one image.');
+    if (!form.name || !form.price) {
+      setMessage('Please fill in name and price.');
       return;
     }
 
-    const imageUrls = await Promise.all(images.map(convertToBase64));
-
-    const product: Product = {
-      id: getNextAdminId(),
+    const productData: Product = {
+      id: editingId ?? getNextAdminId(),
       name: form.name,
       category: form.category,
       price: Number(form.price),
+      originalPrice: form.originalPrice ? Number(form.originalPrice) : undefined,
+      badge: form.badge || undefined,
       description: form.description || 'Stylish and affordable, available now at Avytrendy.',
-      images: imageUrls,
+      images: [],
       sizes: form.sizes ? form.sizes.split(',').map((s) => s.trim()) : ['One Size'],
       colors: form.colors ? form.colors.split(',').map((c) => c.trim()) : ['Default'],
       featured: form.featured,
@@ -170,12 +262,54 @@ function Dashboard() {
       reviews: Number(form.reviews),
     };
 
-    saveAdminProduct(product);
+    if (editingId) {
+      if (images.length > 0) {
+        const imageUrls = await Promise.all(images.map(compressImage));
+        productData.images = imageUrls;
+      } else {
+        const existing = adminProducts.find((p) => p.id === editingId);
+        productData.images = existing?.images ?? [];
+      }
+      updateAdminProduct(editingId, productData);
+      setMessage('Product updated successfully!');
+    } else {
+      if (images.length === 0) {
+        setMessage('Please upload at least one image.');
+        return;
+      }
+      const imageUrls = await Promise.all(images.map(compressImage));
+      productData.images = imageUrls;
+      saveAdminProduct(productData);
+      setMessage('Product added successfully!');
+    }
+
     setAdminProducts(getAdminProducts());
     setForm(emptyForm);
     setImages([]);
     setPreviews([]);
-    setMessage('Product added successfully!');
+    setExistingImages([]);
+    setEditingId(null);
+  };
+
+  const handleEdit = (product: Product) => {
+    setForm({
+      name: product.name,
+      category: product.category,
+      price: String(product.price),
+      originalPrice: product.originalPrice ? String(product.originalPrice) : '',
+      badge: product.badge || '',
+      description: product.description,
+      sizes: product.sizes.join(', '),
+      colors: product.colors.join(', '),
+      featured: product.featured,
+      rating: String(product.rating),
+      reviews: String(product.reviews),
+    });
+    setEditingId(product.id);
+    setExistingImages(product.images);
+    setPreviews([]);
+    setActiveTab('add');
+    setMessage('');
   };
 
   const handleDelete = (id: number) => {
@@ -185,64 +319,156 @@ function Dashboard() {
   };
 
   return (
-    <div className="dashboard">
+    <div className={`dashboard ${sidebarCollapsed ? 'dashboard--sidebar-collapsed' : ''}`}>
       {/* Sidebar */}
-      <aside className="dashboard__sidebar">
-        <div className="dashboard__brand">
-          <span className="dashboard__brand-icon">&#x25C7;</span>
-          <span className="dashboard__brand-name">AVYTRENDY</span>
+      <nav className="dashboard__navbar">
+        <div className="dashboard__navbar-inner">
+          <div className="dashboard__brand">
+            <span className="dashboard__brand-icon">&#x25C7;</span>
+            <span className="dashboard__brand-name">AVYTRENDY</span>
+          </div>
+
+          <button
+            className="dashboard__collapse-btn"
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {sidebarCollapsed ? (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="9 18 15 12 9 6"/>
+              </svg>
+            ) : (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="15 18 9 12 15 6"/>
+              </svg>
+            )}
+          </button>
+
+          <div className="dashboard__nav">
+            <div className="dashboard__nav-section">Store</div>
+            <button
+              className={`dashboard__nav-btn ${activeTab === 'overview' ? 'dashboard__nav-btn--active' : ''}`}
+              onClick={() => setActiveTab('overview')}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+              </svg>
+              <span>Overview</span>
+            </button>
+            <button
+              className={`dashboard__nav-btn ${activeTab === 'products' ? 'dashboard__nav-btn--active' : ''}`}
+              onClick={() => setActiveTab('products')}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+              </svg>
+              <span>Products</span>
+            </button>
+            <button
+              className={`dashboard__nav-btn ${activeTab === 'add' ? 'dashboard__nav-btn--active' : ''}`}
+              onClick={() => { setActiveTab('add'); setEditingId(null); setForm(emptyForm); setImages([]); setPreviews([]); setExistingImages([]); }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
+              </svg>
+              <span>Add Product</span>
+            </button>
+
+            <div className="dashboard__nav-section">Analytics</div>
+            <button
+              className={`dashboard__nav-btn ${activeTab === 'sales' ? 'dashboard__nav-btn--active' : ''}`}
+              onClick={() => setActiveTab('sales')}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+              </svg>
+              <span>Sales</span>
+            </button>
+            <button
+              className={`dashboard__nav-btn ${activeTab === 'orders' ? 'dashboard__nav-btn--active' : ''}`}
+              onClick={() => setActiveTab('orders')}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+              </svg>
+              <span>Orders</span>
+              {badgeCounts.activeOrders > 0 && (
+                <span className={`dashboard__nav-badge ${badgeCounts.activeOrders > 3 ? 'dashboard__nav-badge--live' : 'dashboard__nav-badge--highlight'}`}>
+                  {badgeCounts.activeOrders}
+                </span>
+              )}
+            </button>
+
+            <div className="dashboard__nav-section">Communication</div>
+            <button
+              className={`dashboard__nav-btn ${activeTab === 'subscribers' ? 'dashboard__nav-btn--active' : ''}`}
+              onClick={() => setActiveTab('subscribers')}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+              </svg>
+              <span>Subscribers</span>
+              {badgeCounts.newSubsToday > 0 && (
+                <span className="dashboard__nav-badge dashboard__nav-badge--highlight">{badgeCounts.newSubsToday}</span>
+              )}
+            </button>
+            <button
+              className={`dashboard__nav-btn ${activeTab === 'messages' ? 'dashboard__nav-btn--active' : ''}`}
+              onClick={() => setActiveTab('messages')}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              </svg>
+              <span>Messages</span>
+              {badgeCounts.unreadMessages > 0 && (
+                <span className="dashboard__nav-badge dashboard__nav-badge--live">{badgeCounts.unreadMessages}</span>
+              )}
+            </button>
+            <button
+              className={`dashboard__nav-btn ${activeTab === 'reviews' ? 'dashboard__nav-btn--active' : ''}`}
+              onClick={() => setActiveTab('reviews')}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+              </svg>
+              <span>Reviews</span>
+            </button>
+          </div>
+          <button className="dashboard__logout" onClick={logout}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+            <span>Logout</span>
+          </button>
         </div>
-        <nav className="dashboard__nav">
-          <button
-            className={`dashboard__nav-btn ${activeTab === 'overview' ? 'dashboard__nav-btn--active' : ''}`}
-            onClick={() => setActiveTab('overview')}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
-            </svg>
-            Overview
-          </button>
-          <button
-            className={`dashboard__nav-btn ${activeTab === 'products' ? 'dashboard__nav-btn--active' : ''}`}
-            onClick={() => setActiveTab('products')}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
-            </svg>
-            Products
-          </button>
-          <button
-            className={`dashboard__nav-btn ${activeTab === 'add' ? 'dashboard__nav-btn--active' : ''}`}
-            onClick={() => setActiveTab('add')}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
-            </svg>
-            Add Product
-          </button>
-          <button
-            className={`dashboard__nav-btn ${activeTab === 'sales' ? 'dashboard__nav-btn--active' : ''}`}
-            onClick={() => setActiveTab('sales')}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
-            </svg>
-            Sales
-          </button>
-        </nav>
-        <button className="dashboard__logout" onClick={logout}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/>
-          </svg>
-          Logout
-        </button>
-      </aside>
+      </nav>
 
       {/* Main */}
       <main className="dashboard__main">
+        {/* Quick Stats Bar */}
+        <div className="dashboard__quick-stats">
+          <div className="dashboard__quick-stat">
+            <span className="dashboard__quick-stat-icon dashboard__quick-stat-icon--green" />
+            <strong>{formatKSh(todayRevenue)}</strong> today
+          </div>
+          <div className="dashboard__quick-stat">
+            <span className="dashboard__quick-stat-icon dashboard__quick-stat-icon--amber" />
+            <strong>{badgeCounts.activeOrders}</strong> active orders
+          </div>
+          <div className="dashboard__quick-stat">
+            <span className="dashboard__quick-stat-icon dashboard__quick-stat-icon--blue" />
+            <strong>{badgeCounts.ordersToday}</strong> orders today
+          </div>
+          <div className="dashboard__quick-stat">
+            <span className="dashboard__quick-stat-icon dashboard__quick-stat-icon--purple" />
+            <strong>{allProducts.length}</strong> products
+          </div>
+        </div>
+
         <header className="dashboard__header">
           <h1 className="dashboard__title">
-            {activeTab === 'overview' ? 'Dashboard' : activeTab === 'products' ? 'All Products' : activeTab === 'add' ? 'Add Product' : 'Sales'}
+            {activeTab === 'overview' ? 'Dashboard' : activeTab === 'products' ? 'All Products' : activeTab === 'add' ? 'Add Product' : activeTab === 'sales' ? 'Sales' : activeTab === 'orders' ? 'Order Management' : activeTab === 'subscribers' ? 'Subscribers' : activeTab === 'messages' ? 'Messages' : 'Reviews'}
           </h1>
           <span className="dashboard__header-date">{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
         </header>
@@ -368,57 +594,34 @@ function Dashboard() {
                   <h3 className="dashboard__card-title">Revenue Trend</h3>
                   <span className="dashboard__card-badge">Last 14 days</span>
                 </div>
-                <div className="sparkline">
-                  <svg viewBox="0 0 280 120" preserveAspectRatio="xMidYMid meet" className="sparkline__svg">
-                    <defs>
-                      <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#c9a96e" stopOpacity="0.35"/>
-                        <stop offset="100%" stopColor="#c9a96e" stopOpacity="0.0"/>
-                      </linearGradient>
-                    </defs>
-                    {/* Baseline */}
-                    <line x1="10" y1="105" x2="270" y2="105" stroke="#e5e7eb" strokeWidth="1" strokeDasharray="4 4"/>
-                    {/* Area fill */}
-                    <path
-                      d={`M10,${105 - (dailyRevenue[0]?.revenue || 0) / maxDaily * 95} ${dailyRevenue.map((d, i) => `L${10 + i * (260 / (dailyRevenue.length - 1))},${105 - d.revenue / maxDaily * 95}`).join(' ')} L270,105 L10,105 Z`}
-                      fill="url(#sparkGrad)"
-                    />
-                    {/* Line */}
-                    <polyline
-                      points={dailyRevenue.map((d, i) => `${10 + i * (260 / (dailyRevenue.length - 1))},${105 - d.revenue / maxDaily * 95}`).join(' ')}
-                      fill="none"
-                      stroke="#c9a96e"
-                      strokeWidth="2.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    {/* Dots */}
-                    {dailyRevenue.map((d, i) => {
-                      const cx = 10 + i * (260 / (dailyRevenue.length - 1));
-                      const cy = 105 - d.revenue / maxDaily * 95;
-                      return d.revenue > 0 ? (
-                        <circle key={i} cx={cx} cy={cy} r="3.5" fill="#fff" stroke="#c9a96e" strokeWidth="2"/>
-                      ) : null;
-                    })}
-                    {/* Last dot highlight */}
-                    {(() => {
-                      const last = dailyRevenue[dailyRevenue.length - 1];
-                      const lx = 10 + (dailyRevenue.length - 1) * (260 / (dailyRevenue.length - 1));
-                      const ly = 105 - last.revenue / maxDaily * 95;
-                      if (last.revenue <= 0) return null;
-                      return (
-                        <>
-                          <circle cx={lx} cy={ly} r="6" fill="#c9a96e" opacity="0.2"/>
-                          <circle cx={lx} cy={ly} r="3.5" fill="#c9a96e" stroke="#fff" strokeWidth="2"/>
-                        </>
-                      );
-                    })()}
-                  </svg>
-                  <div className="sparkline__labels">
-                    {dailyRevenue.filter((_, i) => i % 2 === 0).map((d, i) => (
-                      <span key={i} className="sparkline__label">{d.day}</span>
-                    ))}
+                <div className="revenue-chart">
+                  <div className="revenue-chart__grid">
+                    <div className="revenue-chart__grid-line" />
+                    <div className="revenue-chart__grid-line" />
+                    <div className="revenue-chart__grid-line" />
+                    <div className="revenue-chart__grid-line" />
                   </div>
+                  {dailyRevenue.map((d, i) => {
+                    const today = new Date().toISOString().split('T')[0];
+                    const dayKey = new Date();
+                    dayKey.setDate(dayKey.getDate() - (dailyRevenue.length - 1 - i));
+                    const isToday = dayKey.toISOString().split('T')[0] === today;
+                    return (
+                      <div key={d.day} className="revenue-chart__bar-wrap">
+                        <span className="revenue-chart__value">{d.revenue > 0 ? formatKSh(d.revenue) : ''}</span>
+                        <div
+                          className={`revenue-chart__bar ${d.revenue === 0 ? 'revenue-chart__bar--zero' : ''} ${isToday ? 'revenue-chart__bar--today' : ''}`}
+                          style={{ height: `${d.revenue > 0 ? Math.max((d.revenue / maxDaily) * 148, 3) : 2}px` }}
+                          title={`${d.day}: ${formatKSh(d.revenue)}`}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="revenue-chart__labels">
+                  {dailyRevenue.map((d) => (
+                    <span key={d.day} className={`revenue-chart__label ${d.day === new Date().toLocaleDateString('en-US', { weekday: 'short' }) ? 'revenue-chart__label--today' : ''}`}>{d.day}</span>
+                  ))}
                 </div>
               </div>
               <div className="dashboard__card">
@@ -450,7 +653,7 @@ function Dashboard() {
                 <div className="dashboard__category-bars">
                   {categoryCounts.map(({ cat, total, admin }) => (
                     <div key={cat} className="dashboard__bar-row">
-                      <span className="dashboard__bar-label">{cat.charAt(0).toUpperCase() + cat.slice(1)}</span>
+                      <span className="dashboard__bar-label">{catDisplay(cat)}</span>
                       <div className="dashboard__bar-track">
                         <div
                           className="dashboard__bar-fill"
@@ -472,20 +675,25 @@ function Dashboard() {
                   {recentOrders.length === 0 ? (
                     <p className="admin__empty">No orders yet.</p>
                   ) : (
-                    recentOrders.map((sale) => (
-                      <div key={sale.id} className="recent-orders__item">
-                        <div className="recent-orders__avatar">
-                          {sale.id.slice(-2)}
+                    recentOrders.map((sale) => {
+                      const os = getOrderStatus(sale);
+                      const statusLabel = ['', 'Placed', 'Processing', 'Shipped', 'Delivered'][os];
+                      return (
+                        <div key={sale.id} className="recent-orders__item">
+                          <div className="recent-orders__avatar">
+                            {sale.id.slice(-2)}
+                          </div>
+                          <div className="recent-orders__info">
+                            <span className="recent-orders__id">{sale.id}</span>
+                            <span className="recent-orders__meta">
+                              {sale.itemCount} item{sale.itemCount !== 1 ? 's' : ''} &middot; {new Date(sale.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            </span>
+                          </div>
+                          <span className={`recent-orders__status recent-orders__status--${os}`}>{statusLabel}</span>
+                          <span className="recent-orders__total">{formatKSh(sale.total)}</span>
                         </div>
-                        <div className="recent-orders__info">
-                          <span className="recent-orders__id">{sale.id}</span>
-                          <span className="recent-orders__meta">
-                            {sale.itemCount} item{sale.itemCount !== 1 ? 's' : ''} &middot; {new Date(sale.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                          </span>
-                        </div>
-                        <span className="recent-orders__total">{formatKSh(sale.total)}</span>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               </div>
@@ -512,6 +720,15 @@ function Dashboard() {
                         {p.category} &middot; {formatKSh(p.price)}
                       </span>
                     </div>
+                    <button
+                      className="admin__card-edit"
+                      onClick={() => handleEdit(p)}
+                      aria-label="Edit product"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                      </svg>
+                    </button>
                     <button
                       className="admin__card-delete"
                       onClick={() => handleDelete(p.id)}
@@ -579,9 +796,17 @@ function Dashboard() {
             </div>
 
             <div className="admin__list" style={{ marginTop: 24 }}>
-              <h2 className="admin__section-title">
-                Recent Orders ({allSales.length})
-              </h2>
+              <div className="admin__section-header">
+                <h2 className="admin__section-title" style={{ margin: 0 }}>
+                  Recent Orders ({allSales.length})
+                </h2>
+                <button className="admin__export-btn" onClick={() => exportCSV(allSales)}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                  Export CSV
+                </button>
+              </div>
               {allSales.length === 0 ? (
                 <p className="admin__empty">No sales recorded yet. Sales will appear here when customers place orders.</p>
               ) : (
@@ -593,17 +818,434 @@ function Dashboard() {
                         <th>Date</th>
                         <th>Items</th>
                         <th>Total</th>
+                        <th>Status</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {[...allSales].reverse().map((sale) => (
+                      {[...allSales].reverse().map((sale) => {
+                        const currentStatus = getOrderStatus(sale);
+                        const statusLabels: Record<number, string> = {
+                          1: 'Order Placed',
+                          2: 'Processing',
+                          3: 'Shipped',
+                          4: 'Delivered',
+                        };
+                        return (
                         <tr key={sale.id}>
                           <td className="sales-table__id">{sale.id}</td>
                           <td>{new Date(sale.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</td>
                           <td>{sale.itemCount} item{sale.itemCount !== 1 ? 's' : ''}</td>
                           <td className="sales-table__total">{formatKSh(sale.total)}</td>
+                          <td>
+                            <select
+                              className={`order-status-select order-status-select--${currentStatus}`}
+                              value={currentStatus}
+                              onChange={(e) => {
+                                updateOrderStatus(sale.id, Number(e.target.value));
+                                setSalesRefresh((n) => n + 1);
+                              }}
+                            >
+                              <option value={1}>{statusLabels[1]}</option>
+                              <option value={2}>{statusLabels[2]}</option>
+                              <option value={3}>{statusLabels[3]}</option>
+                              <option value={4}>{statusLabels[4]}</option>
+                            </select>
+                          </td>
+                        </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* === Orders Tab === */}
+        {activeTab === 'orders' && (
+          <div className="orders-tab">
+            <div className="dashboard__stats">
+              <div className="dashboard__stat">
+                <div className="dashboard__stat-icon dashboard__stat-icon--orders">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+                  </svg>
+                </div>
+                <div className="dashboard__stat-body">
+                  <span className="dashboard__stat-value">{allSales.length}</span>
+                  <span className="dashboard__stat-label">Total Orders</span>
+                </div>
+              </div>
+              <div className="dashboard__stat">
+                <div className="dashboard__stat-icon dashboard__stat-icon--sales-today">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/>
+                  </svg>
+                </div>
+                <div className="dashboard__stat-body">
+                  <span className="dashboard__stat-value">{allSales.filter((s) => getOrderStatus(s) < 4).length}</span>
+                  <span className="dashboard__stat-label">Active Orders</span>
+                </div>
+              </div>
+              <div className="dashboard__stat">
+                <div className="dashboard__stat-icon dashboard__stat-icon--green">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+                  </svg>
+                </div>
+                <div className="dashboard__stat-body">
+                  <span className="dashboard__stat-value">{allSales.filter((s) => getOrderStatus(s) === 4).length}</span>
+                  <span className="dashboard__stat-label">Delivered</span>
+                </div>
+              </div>
+              <div className="dashboard__stat">
+                <div className="dashboard__stat-icon dashboard__stat-icon--sales-month">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+                  </svg>
+                </div>
+                <div className="dashboard__stat-body">
+                  <span className="dashboard__stat-value">{todaySales.length}</span>
+                  <span className="dashboard__stat-label">Today's Orders</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="admin__list" style={{ marginTop: 24 }}>
+              <div className="admin__section-header">
+                <h2 className="admin__section-title" style={{ margin: 0 }}>
+                  All Orders ({allSales.length})
+                </h2>
+                <button className="admin__export-btn" onClick={() => exportCSV(allSales)}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                  Export CSV
+                </button>
+              </div>
+              {allSales.length === 0 ? (
+                <p className="admin__empty">No orders yet. Orders will appear here when customers place them.</p>
+              ) : (
+                <div className="sales-table-wrap">
+                  <table className="sales-table">
+                    <thead>
+                      <tr>
+                        <th>Order ID</th>
+                        <th>Date</th>
+                        <th>Items</th>
+                        <th>Total</th>
+                        <th>Status</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[...allSales].reverse().map((sale) => {
+                        const currentStatus = getOrderStatus(sale);
+                        const statusLabels: Record<number, string> = {
+                          1: 'Order Placed',
+                          2: 'Processing',
+                          3: 'Shipped',
+                          4: 'Delivered',
+                        };
+                        const isExpanded = expandedOrder === sale.id;
+                        return (
+                          <tr key={sale.id} className={`sales-table__row ${isExpanded ? 'sales-table__row--expanded' : ''}`}>
+                            <td className="sales-table__id">{sale.id}</td>
+                            <td>{new Date(sale.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</td>
+                            <td>{sale.itemCount} item{sale.itemCount !== 1 ? 's' : ''}</td>
+                            <td className="sales-table__total">{formatKSh(sale.total)}</td>
+                            <td>
+                              <select
+                                className={`order-status-select order-status-select--${currentStatus}`}
+                                value={currentStatus}
+                                onChange={(e) => {
+                                  updateOrderStatus(sale.id, Number(e.target.value));
+                                  setSalesRefresh((n) => n + 1);
+                                }}
+                              >
+                                <option value={1}>{statusLabels[1]}</option>
+                                <option value={2}>{statusLabels[2]}</option>
+                                <option value={3}>{statusLabels[3]}</option>
+                                <option value={4}>{statusLabels[4]}</option>
+                              </select>
+                            </td>
+                            <td>
+                              <button
+                                className="sales-table__expand-btn"
+                                onClick={() => setExpandedOrder(isExpanded ? null : sale.id)}
+                                aria-label={isExpanded ? 'Collapse' : 'Expand'}
+                              >
+                                {isExpanded ? '−' : '+'}
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  {/* Expanded detail panel */}
+                  {expandedOrder && [...allSales].reverse().filter((s) => s.id === expandedOrder).map((sale) => (
+                    <div key={`detail-${sale.id}`} className="order-detail">
+                      <h4 className="order-detail__title">Order {sale.id} — Line Items</h4>
+                      <table className="order-detail__items">
+                        <thead>
+                          <tr>
+                            <th>Product</th>
+                            <th>Qty</th>
+                            <th>Unit Price</th>
+                            <th>Subtotal</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {sale.items.map((item, i) => (
+                            <tr key={i}>
+                              <td>{item.name}</td>
+                              <td>{item.quantity}</td>
+                              <td>{formatKSh(item.price)}</td>
+                              <td className="order-detail__subtotal">{formatKSh(item.price * item.quantity)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot>
+                          <tr>
+                            <td colSpan={3} className="order-detail__total-label">Total</td>
+                            <td className="order-detail__total-value">{formatKSh(sale.total)}</td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* === Subscribers Tab === */}
+        {activeTab === 'subscribers' && (
+          <div className="subscribers-tab">
+            <div className="dashboard__stats">
+              <div className="dashboard__stat">
+                <div className="dashboard__stat-icon dashboard__stat-icon--orders">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                  </svg>
+                </div>
+                <div className="dashboard__stat-body">
+                  <span className="dashboard__stat-value">{subscribersList.length}</span>
+                  <span className="dashboard__stat-label">Total Subscribers</span>
+                </div>
+              </div>
+              <div className="dashboard__stat">
+                <div className="dashboard__stat-icon dashboard__stat-icon--green">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                </div>
+                <div className="dashboard__stat-body">
+                  <span className="dashboard__stat-value">{subscribersList.filter((s) => s.date.startsWith(new Date().toISOString().split('T')[0])).length}</span>
+                  <span className="dashboard__stat-label">New Today</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="admin__list" style={{ marginTop: 24 }}>
+              <h2 className="admin__section-title">
+                All Subscribers ({subscribersList.length})
+              </h2>
+              {subscribersList.length === 0 ? (
+                <p className="admin__empty">No subscribers yet. Subscribers will appear when someone signs up via the newsletter form.</p>
+              ) : (
+                <div className="sales-table-wrap">
+                  <table className="sales-table">
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>Email</th>
+                        <th>Date Subscribed</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[...subscribersList].reverse().map((sub, i) => (
+                        <tr key={i}>
+                          <td className="sales-table__id">{subscribersList.length - i}</td>
+                          <td>{sub.email}</td>
+                          <td>{new Date(sub.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</td>
                         </tr>
                       ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* === Messages Tab === */}
+        {activeTab === 'messages' && (
+          <div className="subscribers-tab">
+            <div className="dashboard__stats">
+              <div className="dashboard__stat">
+                <div className="dashboard__stat-icon dashboard__stat-icon--orders">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                  </svg>
+                </div>
+                <div className="dashboard__stat-body">
+                  <span className="dashboard__stat-value">{messagesList.length}</span>
+                  <span className="dashboard__stat-label">Total Messages</span>
+                </div>
+              </div>
+              <div className="dashboard__stat">
+                <div className="dashboard__stat-icon dashboard__stat-icon--green">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                </div>
+                <div className="dashboard__stat-body">
+                  <span className="dashboard__stat-value">{messagesList.filter((m: { date: string }) => m.date.startsWith(new Date().toISOString().split('T')[0])).length}</span>
+                  <span className="dashboard__stat-label">New Today</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="admin__list" style={{ marginTop: 24 }}>
+              <h2 className="admin__section-title">
+                All Messages ({messagesList.length})
+              </h2>
+              {messagesList.length === 0 ? (
+                <p className="admin__empty">No messages yet. Messages will appear when someone submits the contact form.</p>
+              ) : (
+                <div className="sales-table-wrap">
+                  <table className="sales-table">
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>Name</th>
+                        <th>Message</th>
+                        <th>Date</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[...messagesList].reverse().map((msg: { id: string; name: string; email: string; subject: string; message: string; date: string }, i: number) => {
+                        const isExpanded = expandedMessage === msg.id;
+                        const preview = msg.message.length > 100 ? `${msg.message.slice(0, 100)}…` : msg.message;
+                        return (
+                          <tr
+                            key={msg.id || i}
+                            className={`sales-table__row ${isExpanded ? 'sales-table__row--expanded' : ''}`}
+                            style={{ cursor: 'pointer' }}
+                            onClick={() => setExpandedMessage(isExpanded ? null : msg.id)}
+                          >
+                            <td className="sales-table__id">{messagesList.length - i}</td>
+                            <td className="admin__msg-name">
+                              <span className="admin__msg-name-text">{msg.name}</span>
+                              <span className="admin__msg-email">{msg.email}</span>
+                            </td>
+                            <td className="admin__msg-preview">
+                              <span className="admin__msg-subject">{msg.subject || 'No subject'}</span>
+                              <span className="admin__msg-snippet">{preview}</span>
+                            </td>
+                            <td>{new Date(msg.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</td>
+                            <td>
+                              <button
+                                className="sales-table__expand-btn"
+                                onClick={(e) => { e.stopPropagation(); setExpandedMessage(isExpanded ? null : msg.id); }}
+                                aria-label={isExpanded ? 'Collapse' : 'Expand'}
+                              >
+                                {isExpanded ? '−' : '+'}
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  {expandedMessage && [...messagesList].reverse().filter((m: { id: string }) => m.id === expandedMessage).map((msg: { id: string; name: string; email: string; subject: string; message: string; date: string }) => (
+                    <div key={`detail-${msg.id}`} className="order-detail">
+                      <h4 className="order-detail__title">Message from {msg.name}</h4>
+                      <div className="order-detail__meta">
+                        <span>{msg.email}</span>
+                        <span>{new Date(msg.date).toLocaleString('en-US', { dateStyle: 'long', timeStyle: 'short' })}</span>
+                      </div>
+                      <p className="order-detail__message">{msg.message}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* === Reviews Tab === */}
+        {activeTab === 'reviews' && (
+          <div className="subscribers-tab">
+            <div className="dashboard__stats">
+              <div className="dashboard__stat">
+                <div className="dashboard__stat-icon dashboard__stat-icon--gold">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                  </svg>
+                </div>
+                <div className="dashboard__stat-body">
+                  <span className="dashboard__stat-value">{reviewsList.length}</span>
+                  <span className="dashboard__stat-label">Total Reviews</span>
+                </div>
+              </div>
+              <div className="dashboard__stat">
+                <div className="dashboard__stat-icon dashboard__stat-icon--green">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                </div>
+                <div className="dashboard__stat-body">
+                  <span className="dashboard__stat-value">
+                    {reviewsList.length > 0
+                      ? (reviewsList.reduce((sum: number, r: { rating: number }) => sum + r.rating, 0) / reviewsList.length).toFixed(1)
+                      : '0.0'}
+                  </span>
+                  <span className="dashboard__stat-label">Average Rating</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="admin__list" style={{ marginTop: 24 }}>
+              <h2 className="admin__section-title">
+                All Reviews ({reviewsList.length})
+              </h2>
+              {reviewsList.length === 0 ? (
+                <p className="admin__empty">No reviews yet. Reviews will appear when customers submit them on product pages.</p>
+              ) : (
+                <div className="sales-table-wrap">
+                  <table className="sales-table">
+                    <thead>
+                      <tr>
+                        <th>Product</th>
+                        <th>Name</th>
+                        <th>Rating</th>
+                        <th>Comment</th>
+                        <th>Date</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[...reviewsList].reverse().map((rev: { id: string; productId: number; name: string; rating: number; comment: string; date: string }, i: number) => {
+                        const product = allProducts.find((p) => p.id === rev.productId);
+                        return (
+                          <tr key={rev.id || i}>
+                            <td className="sales-table__id">{product?.name ?? `Product #${rev.productId}`}</td>
+                            <td>{rev.name}</td>
+                            <td>
+                              <span className="admin__rating">
+                                {'★'.repeat(rev.rating)}{'☆'.repeat(5 - rev.rating)}
+                              </span>
+                            </td>
+                            <td className="admin__review-comment">{rev.comment}</td>
+                            <td>{new Date(rev.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -615,7 +1257,25 @@ function Dashboard() {
         {/* === Add Product Tab === */}
         {activeTab === 'add' && (
           <form className="admin__form" onSubmit={handleSubmit}>
-            <h2 className="admin__section-title">Add New Product</h2>
+            <div className="admin__section-header">
+              <h2 className="admin__section-title" style={{ margin: 0 }}>
+                {editingId ? 'Edit Product' : 'Add New Product'}
+              </h2>
+              {editingId && (
+                <button
+                  className="admin__cancel-btn"
+                  onClick={() => {
+                    setForm(emptyForm);
+                    setImages([]);
+                    setPreviews([]);
+                    setExistingImages([]);
+                    setEditingId(null);
+                  }}
+                >
+                  Cancel Edit
+                </button>
+              )}
+            </div>
 
             <div className="admin__row">
               <div className="admin__field">
@@ -637,7 +1297,7 @@ function Dashboard() {
                   onChange={(e) => setForm({ ...form, category: e.target.value as Product['category'] })}
                 >
                   {CATEGORIES.map((c) => (
-                    <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>
+                    <option key={c} value={c}>{catDisplay(c)}</option>
                   ))}
                 </select>
               </div>
@@ -678,6 +1338,32 @@ function Dashboard() {
               </div>
             </div>
 
+            <div className="admin__row">
+              <div className="admin__field">
+                <label className="admin__label">Original Price (KSh)</label>
+                <input
+                  className="admin__input"
+                  type="number"
+                  value={form.originalPrice}
+                  onChange={(e) => setForm({ ...form, originalPrice: e.target.value })}
+                  placeholder="Leave empty if no discount"
+                />
+              </div>
+              <div className="admin__field">
+                <label className="admin__label">Badge</label>
+                <select
+                  className="admin__input admin__select"
+                  value={form.badge}
+                  onChange={(e) => setForm({ ...form, badge: e.target.value })}
+                >
+                  <option value="">None</option>
+                  <option value="Best Seller">Best Seller</option>
+                  <option value="New Arrival">New Arrival</option>
+                  <option value="Trending">Trending</option>
+                </select>
+              </div>
+            </div>
+
             <div className="admin__field">
               <label className="admin__label">Description</label>
               <textarea
@@ -713,7 +1399,19 @@ function Dashboard() {
             </div>
 
             <div className="admin__field">
-              <label className="admin__label">Images *</label>
+              <label className="admin__label">
+                Images{editingId ? '' : ' *'}
+              </label>
+              {editingId && existingImages.length > 0 && (
+                <>
+                  <p className="admin__label-hint">Current images (upload new ones to replace, or leave empty to keep):</p>
+                  <div className="admin__previews">
+                    {existingImages.map((src, i) => (
+                      <img key={`existing-${i}`} src={src} alt={`Current ${i + 1}`} className="admin__preview-img" />
+                    ))}
+                  </div>
+                </>
+              )}
               <input
                 className="admin__input admin__file"
                 type="file"
@@ -724,7 +1422,7 @@ function Dashboard() {
               {previews.length > 0 && (
                 <div className="admin__previews">
                   {previews.map((src, i) => (
-                    <img key={i} src={src} alt={`Preview ${i + 1}`} className="admin__preview-img" />
+                    <img key={i} src={src} alt={`New ${i + 1}`} className="admin__preview-img" />
                   ))}
                 </div>
               )}
@@ -740,7 +1438,7 @@ function Dashboard() {
             </label>
 
             <button type="submit" className="btn btn--primary btn--lg">
-              Add Product
+              {editingId ? 'Update Product' : 'Add Product'}
             </button>
           </form>
         )}

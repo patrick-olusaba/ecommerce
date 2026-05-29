@@ -73,6 +73,7 @@
   background: #f9f9f9;
   margin-bottom: 12px;
   max-height: 55vh;
+  position: relative;
 }
 
 .qv-gallery__main img {
@@ -80,6 +81,25 @@
   height: 100%;
   object-fit: cover;
 }
+
+.qv-gallery__badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 5px 12px;
+  border-radius: 5px;
+  z-index: 1;
+}
+
+.qv-gallery__badge--sale { background: #ef4444; box-shadow: 0 2px 8px rgba(239, 68, 68, 0.35); }
+.qv-gallery__badge--bestseller { background: #1a1a2e; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25); }
+.qv-gallery__badge--new { background: #16a34a; box-shadow: 0 2px 8px rgba(22, 163, 74, 0.35); }
+.qv-gallery__badge--trending { background: #f97316; box-shadow: 0 2px 8px rgba(249, 115, 22, 0.35); }
 
 .qv-gallery__thumbs {
   display: flex;

@@ -21,4 +21,4 @@ export interface CartItem {
   color: string;
 }
 
-export type SortOption = 'price-asc' | 'price-desc' | 'name-asc' | 'name-desc' | 'rating';
+export type SortOption = 'price-asc' | 'price-desc' | 'name-asc' | 'name-desc' | 'rating' | 'newest' | 'popular';

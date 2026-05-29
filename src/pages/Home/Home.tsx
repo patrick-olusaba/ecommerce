@@ -1,7 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getAllProducts } from '../../data/products';
 import { useToast } from '../../context/ToastContext';
+import { formatKSh } from '../../utils/currency';
+import useDocumentTitle from '../../hooks/useDocumentTitle';
+import { addDocument } from '../../firebase/firestore';
 import ProductCard from '../../components/ProductCard/ProductCard';
 import RecentlyViewed from '../../components/RecentlyViewed/RecentlyViewed';
 import SkeletonCard from '../../components/SkeletonCard/SkeletonCard';
@@ -10,23 +13,68 @@ import './Home.css';
 const highlights = [
   {
     image: '/hero/watch.png',
-    overline: 'NEWS',
+    overline: 'NEW ARRIVALS',
     title: 'Timeless style,\nyou\'ll love.',
     accent: 'Prices you\'ll trust.',
     startsAt: 'Starts from',
-    price: 'KSh 700',
-    link: '/shop',
-    linkText: 'SHOP NOW',
+    category: 'watches',
+    link: '/shop/watches',
+    linkText: 'SHOP WATCHES',
+    color: '#ecfdf3',
+    chipBg: '#d1fae5',
+    chipColor: '#16a34a',
   },
   {
     image: '/hero/dress.png',
-    overline: 'NEWS',
+    overline: 'TRENDING',
     title: 'Dresses that\nturn heads.',
-    accent: 'Prices you\'ll trust.',
+    accent: 'Elegant & affordable.',
     startsAt: 'Starts from',
-    price: 'KSh 2,200',
+    category: 'dresses',
     link: '/shop/dresses',
     linkText: 'SHOP DRESSES',
+    color: '#fdf2f8',
+    chipBg: '#fce7f3',
+    chipColor: '#db2777',
+  },
+  {
+    image: '/hero/hero1.png',
+    overline: 'BEST SELLERS',
+    title: 'Style that\nspeaks volumes.',
+    accent: 'Curated looks for you.',
+    startsAt: 'From',
+    category: 'watches',
+    link: '/shop',
+    linkText: 'EXPLORE COLLECTION',
+    color: '#f5f0eb',
+    chipBg: '#e8d9cc',
+    chipColor: '#8b6914',
+  },
+  {
+    image: '/hero/hero2.png',
+    overline: 'COLLECTION',
+    title: 'Fresh fits,\nbold moves.',
+    accent: 'Wardrobe essentials.',
+    startsAt: 'From',
+    category: 'dresses',
+    link: '/shop',
+    linkText: 'DISCOVER MORE',
+    color: '#f0f4ff',
+    chipBg: '#dbe4ff',
+    chipColor: '#4c51bf',
+  },
+  {
+    image: '/hero/hero3.png',
+    overline: 'SALE',
+    title: 'Up to 20% off\non top picks.',
+    accent: 'Limited time offer.',
+    startsAt: 'From',
+    category: 'tshirts',
+    link: '/shop',
+    linkText: 'SHOP DEALS',
+    color: '#fff5f5',
+    chipBg: '#fed7d7',
+    chipColor: '#c53030',
   },
 ];
 
@@ -53,6 +101,7 @@ function useScrollReveal() {
 }
 
 export default function Home() {
+  useDocumentTitle('Home');
   useScrollReveal();
   const [slide, setSlide] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -62,6 +111,13 @@ export default function Home() {
   const bestSellers = [...allProducts].sort((a, b) => b.reviews - a.reviews).slice(0, 8);
   const newArrivals = [...allProducts].sort((a, b) => b.id - a.id).slice(0, 8);
 
+  const slidePrices = useMemo(() => {
+    return highlights.map((h) => {
+      const catProducts = allProducts.filter((p) => p.category === h.category);
+      return catProducts.length ? Math.min(...catProducts.map((p) => p.price)) : null;
+    });
+  }, [allProducts]);
+
   const [newsletterEmail, setNewsletterEmail] = useState('');
 
   useEffect(() => {
@@ -69,35 +125,49 @@ export default function Home() {
     return () => clearTimeout(t);
   }, []);
 
-  const handleNewsletterSubmit = (e: React.FormEvent) => {
+  const handleNewsletterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newsletterEmail.trim()) return;
     const subs = JSON.parse(localStorage.getItem('avytrendy_subscribers') || '[]');
-    subs.push({ email: newsletterEmail.trim(), date: new Date().toISOString() });
+    const cleanEmail = newsletterEmail.trim().toLowerCase();
+    if (subs.some((s: { email: string }) => s.email.toLowerCase() === cleanEmail)) {
+      addToast('You\'re already subscribed!', 'info');
+      setNewsletterEmail('');
+      return;
+    }
+    subs.push({ email: cleanEmail, date: new Date().toISOString() });
     localStorage.setItem('avytrendy_subscribers', JSON.stringify(subs));
+    await addDocument('subscribers', { email: cleanEmail });
     addToast('Subscribed! You\'ll receive our latest updates.');
     setNewsletterEmail('');
   };
 
+  const [paused, setPaused] = useState(false);
   const next = useCallback(() => setSlide((s) => (s + 1) % highlights.length), []);
+  const prev = useCallback(() => setSlide((s) => (s - 1 + highlights.length) % highlights.length), []);
 
   useEffect(() => {
+    if (paused) return;
     const timer = setInterval(next, 5000);
     return () => clearInterval(timer);
-  }, [next]);
+  }, [next, paused]);
 
   const s = highlights[slide];
 
   return (
     <div className="home">
       {/* Hero */}
-      <section className="hero">
+      <section
+        className="hero"
+        onMouseEnter={() => setPaused(true)}
+        onMouseLeave={() => setPaused(false)}
+      >
         <div className="hero__grid">
           {/* Main Card */}
-          <div className="hero__main">
+          <div className="hero__main" style={{ background: s.color }}>
             <div className="hero__main-content" key={slide}>
-              <div className="hero__chip">
-                <span className="hero__chip-dot">{s.overline}</span>
+              <div className="hero__chip" style={{ background: s.chipBg, color: s.chipColor }}>
+                <span className="hero__chip-dot" style={{ background: s.chipColor }}>{s.overline}</span>
                 Free Shipping on Orders Above KSh 5,000!
                 <svg className="hero__chip-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="m9 18 6-6-6-6"/>
@@ -112,17 +182,29 @@ export default function Home() {
                 ))}
               </h2>
               <p className="hero__start-from">{s.startsAt}</p>
-              <p className="hero__price">{s.price}</p>
+              <p className="hero__price">{slidePrices[slide] ? formatKSh(slidePrices[slide]) : ''}</p>
               <Link to={s.link} className="hero__cta">{s.linkText}</Link>
             </div>
             <div className="hero__main-image">
-              <img src={s.image} alt="" />
+              <img src={s.image} alt="" key={s.image} />
             </div>
+
+            {/* Arrow Buttons */}
+            <button className="hero__arrow hero__arrow--left" onClick={prev} aria-label="Previous slide">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="m15 18-6-6 6-6"/>
+              </svg>
+            </button>
+            <button className="hero__arrow hero__arrow--right" onClick={next} aria-label="Next slide">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="m9 18 6-6-6-6"/>
+              </svg>
+            </button>
           </div>
 
           {/* Side Cards */}
           <div className="hero__side reveal">
-            <Link to="/shop" className="hero__side-card hero__side-card--orange">
+            <Link to="/shop/watches" className="hero__side-card hero__side-card--orange">
               <div>
                 <p className="hero__side-title">Best<br />products</p>
                 <p className="hero__side-link">
@@ -138,7 +220,7 @@ export default function Home() {
                 className="hero__side-image"
               />
             </Link>
-            <Link to="/shop" className="hero__side-card hero__side-card--blue">
+            <Link to="/shop/dresses" className="hero__side-card hero__side-card--blue">
               <div>
                 <p className="hero__side-title">20%<br />discounts</p>
                 <p className="hero__side-link">
@@ -158,21 +240,13 @@ export default function Home() {
         </div>
 
         {/* Slide dots */}
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 20 }}>
+        <div className="hero__dots">
           {highlights.map((_, i) => (
             <button
               key={i}
+              className={`hero__dot ${i === slide ? 'hero__dot--active' : ''}`}
               onClick={() => setSlide(i)}
               aria-label={`Slide ${i + 1}`}
-              style={{
-                width: 10,
-                height: 10,
-                borderRadius: '50%',
-                border: 'none',
-                background: i === slide ? '#1a1a2e' : '#d1d5db',
-                cursor: 'pointer',
-                padding: 0,
-              }}
             />
           ))}
         </div>
