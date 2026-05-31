@@ -14,6 +14,9 @@ export interface Sale {
   total: number;
   itemCount: number;
   status?: number;
+  email?: string;
+  phone?: string;
+  paymentMethod?: string;
 }
 
 export function updateOrderStatus(orderId: string, status: number): void {

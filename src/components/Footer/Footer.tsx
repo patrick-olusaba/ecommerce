@@ -25,8 +25,7 @@ export default function Footer() {
       <div className="footer__container">
         <div className="footer__brand">
           <Link to="/" className="footer__logo">
-            AVY<span className="footer__logo-accent">TRENDY</span>
-            <span style={{ color: '#22c55e', fontSize: '1.8rem', lineHeight: 0 }}>.</span>
+            <img src="/logo/logo.png" alt="Avytrendy" className="footer__logo-img" />
           </Link>
           <p className="footer__desc">
             Welcome to AVYTRENDY, your ultimate destination for the latest fashion and accessories. From watches and dresses to everyday essentials, we bring you the best in style — all in one place.

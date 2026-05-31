@@ -29,8 +29,10 @@
   letter-spacing: 1px;
 }
 
-.footer__logo-accent {
-  color: #22c55e;
+.footer__logo-img {
+  height: 50px;
+  width: auto;
+  display: block;
 }
 
 .footer__desc {

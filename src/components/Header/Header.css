@@ -99,21 +99,10 @@
   gap: 2px;
 }
 
-.header__logo-icon {
-  color: #c9a96e;
-  font-size: 1.2rem;
-}
-
-.header__logo-accent {
-  color: #c9a96e;
-  font-weight: 400;
-}
-
-.header__logo-dot {
-  color: #22c55e;
-  font-size: 2rem;
-  line-height: 0;
-  margin-left: -2px;
+.header__logo-img {
+  height: 56px;
+  width: auto;
+  display: block;
 }
 
 /* Navigation Links */

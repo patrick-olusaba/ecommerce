@@ -122,9 +122,7 @@ export default function Header() {
       <div className="header__main">
         <div className="header__container">
           <Link to="/" className="header__logo">
-            <span className="header__logo-icon">&#x25C7;</span>
-            AVY<span className="header__logo-accent">TRENDY</span>
-            <span className="header__logo-dot">.</span>
+            <img src="/logo/logo.png" alt="Avytrendy" className="header__logo-img" />
           </Link>
 
           <nav className="header__nav">
