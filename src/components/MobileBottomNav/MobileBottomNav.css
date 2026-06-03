@@ -1,0 +1,96 @@
+.mobile-bottom-nav {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(to bottom, #fafafa, #fff 40%);
+  border-top: 1px solid #e5e7eb;
+  z-index: 199;
+  padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+  justify-content: space-around;
+  align-items: flex-start;
+  box-shadow:
+    0 -2px 8px rgba(0,0,0,0.06),
+    0 -6px 20px rgba(0,0,0,0.08),
+    0 -1px 0 rgba(0,0,0,0.04) inset;
+}
+
+.mobile-bottom-nav__btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  background: none;
+  border: none;
+  color: #94a3b8;
+  font-size: 0.65rem;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px 8px;
+  text-decoration: none;
+  position: relative;
+  font-family: inherit;
+  min-width: 48px;
+  transition: color 0.2s, transform 0.2s;
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,0.08));
+}
+
+.mobile-bottom-nav__btn:hover,
+.mobile-bottom-nav__btn:active {
+  color: #c9a96e;
+  transform: translateY(-2px);
+  filter: drop-shadow(0 3px 4px rgba(201,169,110,0.25));
+}
+
+.mobile-bottom-nav__badge {
+  position: absolute;
+  top: 0;
+  right: 2px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 700;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+}
+
+.mobile-bottom-nav__top {
+  position: absolute;
+  right: 8px;
+  top: -28px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #c9a96e;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transform: translateY(8px);
+  pointer-events: none;
+  transition: opacity 0.2s, transform 0.2s;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  font-family: inherit;
+  padding: 0;
+}
+
+.mobile-bottom-nav__top--visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+@media (max-width: 768px) {
+  .mobile-bottom-nav {
+    display: flex;
+  }
+}

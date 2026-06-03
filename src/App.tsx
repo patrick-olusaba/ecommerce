@@ -8,6 +8,7 @@ import Footer from './components/Footer/Footer';
 import WhatsAppButton from './components/WhatsAppButton/WhatsAppButton';
 import ScrollToTop from './components/ScrollToTop/ScrollToTop';
 import CompareBar from './components/CompareBar/CompareBar';
+import MobileBottomNav from './components/MobileBottomNav/MobileBottomNav';
 import EmptyState from './components/EmptyState/EmptyState';
 import Home from './pages/Home/Home';
 import Shop from './pages/Shop/Shop';
@@ -111,6 +112,15 @@ function ToastContainer() {
   );
 }
 
+function PageTransition({ children }: { children: React.ReactNode }) {
+  const { pathname } = useLocation();
+  return (
+    <div className="page-transition" key={pathname}>
+      {children}
+    </div>
+  );
+}
+
 function StoreLayout() {
   const location = useLocation();
   const isAdmin = location.pathname.startsWith('/admin');
@@ -118,10 +128,12 @@ function StoreLayout() {
   if (isAdmin) {
     return (
       <main className="main">
-        <Routes>
-          <Route path="/admin" element={<Admin />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <PageTransition>
+          <Routes>
+            <Route path="/admin" element={<Admin />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </PageTransition>
       </main>
     );
   }
@@ -132,29 +144,32 @@ function StoreLayout() {
       <CartDrawer />
       <ToastContainer />
       <main className="main">
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/shop" element={<Shop />} />
-          <Route path="/shop/:category" element={<Shop />} />
-          <Route path="/wishlist" element={<Wishlist />} />
-          <Route path="/about" element={<About />} />
-          <Route path="/contact" element={<Contact />} />
-          <Route path="/faq" element={<FAQ />} />
-          <Route path="/search" element={<Search />} />
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/privacy" element={<Privacy />} />
-          <Route path="/size-guide" element={<SizeGuide />} />
-          <Route path="/product/:id" element={<Product />} />
-          <Route path="/cart" element={<Cart />} />
-          <Route path="/checkout" element={<Checkout />} />
-          <Route path="/track-order" element={<TrackOrder />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <PageTransition>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/shop" element={<Shop />} />
+            <Route path="/shop/:category" element={<Shop />} />
+            <Route path="/wishlist" element={<Wishlist />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/contact" element={<Contact />} />
+            <Route path="/faq" element={<FAQ />} />
+            <Route path="/search" element={<Search />} />
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/privacy" element={<Privacy />} />
+            <Route path="/size-guide" element={<SizeGuide />} />
+            <Route path="/product/:id" element={<Product />} />
+            <Route path="/cart" element={<Cart />} />
+            <Route path="/checkout" element={<Checkout />} />
+            <Route path="/track-order" element={<TrackOrder />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </PageTransition>
       </main>
       <Footer />
       <WhatsAppButton />
       <ScrollToTop />
       <CompareBar />
+      <MobileBottomNav />
     </>
   );
 }

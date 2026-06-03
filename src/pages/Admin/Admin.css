@@ -141,16 +141,10 @@
   border-bottom: 1px solid #f1f5f9;
 }
 
-.dashboard__brand-icon {
-  color: #c9a96e;
-  font-size: 1.3rem;
-}
-
-.dashboard__brand-name {
-  font-weight: 700;
-  font-size: 1rem;
-  color: #1a1a2e;
-  letter-spacing: 0.5px;
+.dashboard__brand-logo {
+  height: 44px;
+  width: auto;
+  display: block;
 }
 
 .dashboard__nav {
@@ -257,7 +251,10 @@
   justify-content: center;
 }
 
-.dashboard--sidebar-collapsed .dashboard__brand-name,
+.dashboard--sidebar-collapsed .dashboard__brand-logo {
+  height: 32px;
+}
+
 .dashboard--sidebar-collapsed .dashboard__nav-btn span,
 .dashboard--sidebar-collapsed .dashboard__nav-badge,
 .dashboard--sidebar-collapsed .dashboard__nav-section,
@@ -1595,8 +1592,6 @@
     border-bottom: none;
   }
 
-  .dashboard__brand-name { font-size: 0.95rem; }
-
   .dashboard__nav {
     flex-direction: row;
     flex: 1;
@@ -1635,7 +1630,7 @@
 
   .dashboard__navbar-inner { padding: 0 12px; }
 
-  .dashboard__brand-name { display: none; }
+  .dashboard__brand-logo { height: 32px; }
 
   .dashboard__nav-btn {
     padding: 6px 8px;

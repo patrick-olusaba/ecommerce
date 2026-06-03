@@ -19,3 +19,12 @@
   transform: scale(1.08);
   box-shadow: 0 6px 20px rgba(37, 211, 102, 0.5);
 }
+
+@media (max-width: 768px) {
+  .whatsapp-float {
+    bottom: 78px;
+    right: 16px;
+    width: 48px;
+    height: 48px;
+  }
+}

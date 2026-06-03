@@ -394,8 +394,7 @@ function Dashboard() {
       <nav className="dashboard__navbar">
         <div className="dashboard__navbar-inner">
           <div className="dashboard__brand">
-            <span className="dashboard__brand-icon">&#x25C7;</span>
-            <span className="dashboard__brand-name">AVYTRENDY</span>
+            <img src="/logo/logo.png" alt="Avytrendy" className="dashboard__brand-logo" />
           </div>
 
           <button

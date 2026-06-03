@@ -76,6 +76,19 @@ const highlights = [
     chipBg: '#fed7d7',
     chipColor: '#c53030',
   },
+  {
+    image: '/hero/hero4.png',
+    overline: 'AVYTRENDY',
+    title: 'Your style,\nyour story.',
+    accent: 'Kenyan fashion, redefined.',
+    startsAt: 'Discover',
+    category: 'dresses',
+    link: '/shop',
+    linkText: 'EXPLORE ALL',
+    color: '#f0f4ff',
+    chipBg: '#dbe4ff',
+    chipColor: '#3b82f6',
+  },
 ];
 
 const categories = ['watches', 'dresses', 'pants', 'blouses', 'tshirts', 'sweaters'];

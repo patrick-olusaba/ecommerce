@@ -147,9 +147,15 @@ export default function Shop() {
           </div>
         </div>
       ) : (
-        <div className="shop__banner">
-          <h1 className="shop__title">{title}</h1>
-          <p className="shop__count">{filtered.length} products</p>
+        <div className="shop__hero" style={{ background: 'linear-gradient(135deg, #f8f6f2 0%, #f0ebe0 100%)' }}>
+          <div className="shop__hero-content">
+            <h1 className="shop__hero-title">{title}</h1>
+            <p className="shop__hero-subtitle">Discover our entire collection in one place.</p>
+            <p className="shop__hero-count">{filtered.length} products</p>
+          </div>
+          <div className="shop__hero-image">
+            <img src="/hero/allproducts.png" alt="All Products" />
+          </div>
         </div>
       )}
 
