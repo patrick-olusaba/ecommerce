@@ -1,4 +1,4 @@
-import { collection, doc, addDoc, setDoc, updateDoc, getDoc, getDocs, query, where, orderBy } from 'firebase/firestore';
+import { collection, doc, addDoc, setDoc, updateDoc, getDoc, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
 import { db, auth } from './config';
 
 // Firestore rejects undefined values outright, nested ones included — drop them
@@ -71,12 +71,17 @@ export interface AdminCheckResult {
   detail: string;
 }
 
-export async function checkAdmin(uid: string): Promise<AdminCheckResult> {
+/**
+ * Can this session read the dashboard's data? Probes the real query the dashboard
+ * makes rather than reading /admins — isAdmin() resolves server-side via exists(),
+ * so the client never needs read access to the admin list itself.
+ */
+export async function checkAdminAccess(): Promise<AdminCheckResult> {
   if (!db) return { status: 'unavailable', detail: 'Firebase is not configured in this build.' };
 
   // A request that goes out before the ID token attaches has request.auth == null,
-  // which the rules deny — indistinguishable from a rules problem. Rule it out.
-  let tokenOk = false;
+  // which the rules deny — indistinguishable from not being an admin. Rule it out.
+  let tokenOk: boolean;
   try {
     tokenOk = Boolean(await auth?.currentUser?.getIdToken());
   } catch {
@@ -86,13 +91,13 @@ export async function checkAdmin(uid: string): Promise<AdminCheckResult> {
   const context = `signed-in-uid=${auth?.currentUser?.uid ?? 'NONE'} token=${tokenOk ? 'ok' : 'MISSING'} project=${db.app.options.projectId}`;
 
   try {
-    const snap = await getDoc(doc(db, 'admins', uid));
-    return { status: snap.exists() ? 'ok' : 'not-listed', detail: context };
+    await getDocs(query(collection(db, 'orders'), limit(1)));
+    return { status: 'ok', detail: context };
   } catch (err) {
     const { code, message } = (err ?? {}) as { code?: string; message?: string };
-    console.error(`[admin check] admins/${uid} -> ${code}: ${message} | ${context}`);
+    console.error(`[admin check] orders list -> ${code}: ${message} | ${context}`);
     return {
-      status: code === 'permission-denied' ? 'denied' : 'unavailable',
+      status: code === 'permission-denied' ? 'not-listed' : 'unavailable',
       detail: `${code} | ${context}`,
     };
   }

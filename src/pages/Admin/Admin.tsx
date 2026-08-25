@@ -5,7 +5,7 @@ import { useAdminAuth } from '../../context/AdminAuthContext';
 import useDocumentTitle from '../../hooks/useDocumentTitle';
 import { getSales, getTodaySales, getWeekSales, getMonthSales, getSalesTotal, getItemsSold, getDailyRevenue, getTopProducts, getSalesForPeriod, getOrderStatus, updateOrderStatus, syncOrders } from '../../utils/salesStorage';
 import { formatKSh } from '../../utils/currency';
-import { getDocuments, checkAdmin, type AdminCheck } from '../../firebase/firestore';
+import { getDocuments, checkAdminAccess, type AdminCheck } from '../../firebase/firestore';
 import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 import type { Product } from '../../types';
@@ -1685,7 +1685,7 @@ function FirebaseAdminBanner() {
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
-    checkAdmin(user.uid).then((result) => {
+    checkAdminAccess().then((result) => {
       if (cancelled) return;
       setStatus(result.status);
       setDetail(result.detail);
@@ -1732,16 +1732,6 @@ function FirebaseAdminBanner() {
           <button className="admin-identity__btn" onClick={signIn}>Sign in with Google</button>
           {signInError && <p className="admin-identity__error">{signInError}</p>}
         </>
-      ) : status === 'denied' ? (
-        <>
-          <p className="admin-identity__text">
-            Firestore refused the admin check for <strong>{user.email}</strong>. Either the rules
-            in <code>firestore.rules</code> aren't the ones published, or App Check is enforcing
-            on Firestore.
-          </p>
-          <p className="admin-identity__diag">{detail}</p>
-          {uidButton}
-        </>
       ) : status === 'unavailable' ? (
         <p className="admin-identity__text">
           Couldn't reach Firestore to check admin access. Check your connection and reload.
@@ -1749,10 +1739,12 @@ function FirebaseAdminBanner() {
       ) : (
         <>
           <p className="admin-identity__text">
-            Signed in as <strong>{user.email}</strong>, but this account isn't an admin yet.
-            In the Firebase console create a document at <code>admins/{user.uid}</code>
-            {' '}(any contents), then reload.
+            Firestore won't hand over order data to <strong>{user.email}</strong>. In the Firebase
+            console create a document at <code>admins/{user.uid}</code> (any contents), then
+            reload. If it's already there, the published rules are missing the{' '}
+            <code>isAdmin()</code> clause on <code>orders</code>.
           </p>
+          <p className="admin-identity__diag">{detail}</p>
           {uidButton}
         </>
       )}

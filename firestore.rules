@@ -12,10 +12,10 @@ service cloud.firestore {
       return request.auth != null && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
 
+    // Never read from the client: isAdmin() resolves exists() server-side, so the app
+    // learns whether it's an admin by attempting the real query, not by reading this.
     match /admins/{uid} {
-      // You may check whether YOU are an admin — that's how /admin knows to warn you.
-      allow get: if request.auth != null && request.auth.uid == uid;
-      allow list, write: if false; // membership is granted in the console only
+      allow read, write: if false; // membership is granted in the console only
     }
 
     match /orders/{orderId} {
