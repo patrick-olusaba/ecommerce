@@ -1705,3 +1705,10 @@
 .admin-identity__btn:hover {
   background: #92400e;
 }
+
+.admin-identity__error {
+  margin: 10px 0 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #b91c1c;
+}

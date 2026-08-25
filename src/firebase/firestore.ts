@@ -59,6 +59,22 @@ export async function getDocument<T>(collectionName: string, id: string): Promis
   }
 }
 
+export type AdminCheck = 'ok' | 'not-listed' | 'denied' | 'unavailable';
+
+/**
+ * Is this uid in /admins? Unlike getDocument, a rules rejection is reported rather
+ * than collapsed into "no such doc" — the two need different fixes.
+ */
+export async function checkAdmin(uid: string): Promise<AdminCheck> {
+  if (!db) return 'unavailable';
+  try {
+    const snap = await getDoc(doc(db, 'admins', uid));
+    return snap.exists() ? 'ok' : 'not-listed';
+  } catch (err) {
+    return (err as { code?: string })?.code === 'permission-denied' ? 'denied' : 'unavailable';
+  }
+}
+
 export async function getDocuments<T>(collectionName: string): Promise<T[]> {
   if (!db) return [];
   try {

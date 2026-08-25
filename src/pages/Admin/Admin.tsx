@@ -5,7 +5,7 @@ import { useAdminAuth } from '../../context/AdminAuthContext';
 import useDocumentTitle from '../../hooks/useDocumentTitle';
 import { getSales, getTodaySales, getWeekSales, getMonthSales, getSalesTotal, getItemsSold, getDailyRevenue, getTopProducts, getSalesForPeriod, getOrderStatus, updateOrderStatus, syncOrders } from '../../utils/salesStorage';
 import { formatKSh } from '../../utils/currency';
-import { getDocuments, getDocument } from '../../firebase/firestore';
+import { getDocuments, checkAdmin, type AdminCheck } from '../../firebase/firestore';
 import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 import type { Product } from '../../types';
@@ -1668,22 +1668,31 @@ function Dashboard() {
 // The password above is a client-side gate — Firestore rules can't trust it, so remote
 // reads run as whoever is signed in with Firebase. This says so out loud instead of
 // letting the dashboard look empty for no visible reason.
+const SIGN_IN_HINTS: Record<string, string> = {
+  'auth/unauthorized-domain': 'add this exact domain under Firebase console > Authentication > Settings > Authorized domains.',
+  'auth/popup-blocked': 'your browser blocked the popup. Allow popups for this site and try again.',
+  'auth/operation-not-allowed': 'enable the Google provider under Firebase console > Authentication > Sign-in method.',
+  'auth/popup-closed-by-user': 'the popup was closed before finishing.',
+};
+
 function FirebaseAdminBanner() {
-  const { user, loginWithGoogle } = useAuth();
-  const [status, setStatus] = useState<'checking' | 'ok' | 'not-listed'>('checking');
+  const { user, loading, loginWithGoogle } = useAuth();
+  const [status, setStatus] = useState<AdminCheck | 'checking'>('checking');
   const [copied, setCopied] = useState(false);
+  const [signInError, setSignInError] = useState('');
 
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
-    getDocument('admins', user.uid).then((doc) => {
-      if (!cancelled) setStatus(doc ? 'ok' : 'not-listed');
+    checkAdmin(user.uid).then((result) => {
+      if (!cancelled) setStatus(result);
     });
     return () => { cancelled = true; };
   }, [user]);
 
   if (!db) return null; // Firebase not configured — local-only is the expected mode
-  if (user && status !== 'not-listed') return null; // checking, or all good
+  if (loading) return null; // wait for the stored session to come back
+  if (user && (status === 'checking' || status === 'ok')) return null;
 
   const copyUid = async () => {
     if (!user) return;
@@ -1693,12 +1702,20 @@ function FirebaseAdminBanner() {
 
   // A fresh sign-in doesn't retrigger the data effects, so reload once it lands.
   const signIn = async () => {
+    setSignInError('');
     try {
       if (await loginWithGoogle()) window.location.reload();
-    } catch {
-      // popup closed or blocked — nothing to do
+    } catch (err) {
+      const code = (err as { code?: string })?.code || 'unknown';
+      setSignInError(SIGN_IN_HINTS[code] ? `${code} — ${SIGN_IN_HINTS[code]}` : `Sign-in failed (${code})`);
     }
   };
+
+  const uidButton = (
+    <button className="admin-identity__btn" onClick={copyUid}>
+      {copied ? 'Copied' : 'Copy my UID'}
+    </button>
+  );
 
   return (
     <div className="admin-identity">
@@ -1710,7 +1727,21 @@ function FirebaseAdminBanner() {
             signed-in admin account. This browser isn't signed in.
           </p>
           <button className="admin-identity__btn" onClick={signIn}>Sign in with Google</button>
+          {signInError && <p className="admin-identity__error">{signInError}</p>}
         </>
+      ) : status === 'denied' ? (
+        <>
+          <p className="admin-identity__text">
+            Firestore refused the admin check for <strong>{user.email}</strong>. The rules in{' '}
+            <code>firestore.rules</code> aren't published yet — paste the current version into
+            Firebase console &rarr; Firestore Database &rarr; Rules and hit Publish, then reload.
+          </p>
+          {uidButton}
+        </>
+      ) : status === 'unavailable' ? (
+        <p className="admin-identity__text">
+          Couldn't reach Firestore to check admin access. Check your connection and reload.
+        </p>
       ) : (
         <>
           <p className="admin-identity__text">
@@ -1718,9 +1749,7 @@ function FirebaseAdminBanner() {
             In the Firebase console create a document at <code>admins/{user.uid}</code>
             {' '}(any contents), then reload.
           </p>
-          <button className="admin-identity__btn" onClick={copyUid}>
-            {copied ? 'Copied' : 'Copy my UID'}
-          </button>
+          {uidButton}
         </>
       )}
     </div>
