@@ -5,8 +5,7 @@ import { useAdminAuth } from '../../context/AdminAuthContext';
 import useDocumentTitle from '../../hooks/useDocumentTitle';
 import { getSales, getTodaySales, getWeekSales, getMonthSales, getSalesTotal, getItemsSold, getDailyRevenue, getTopProducts, getSalesForPeriod, getOrderStatus, updateOrderStatus, syncOrders } from '../../utils/salesStorage';
 import { formatKSh } from '../../utils/currency';
-import { getDocuments, checkAdminAccess, type AdminCheck } from '../../firebase/firestore';
-import { db } from '../../firebase/config';
+import { getDocuments } from '../../firebase/firestore';
 import { useAuth } from '../../context/AuthContext';
 import type { Product } from '../../types';
 import type { Sale } from '../../utils/salesStorage';
@@ -72,24 +71,52 @@ function catDisplay(cat: string) {
 }
 
 /* ===== Login ===== */
+const SIGN_IN_HINTS: Record<string, string> = {
+  'auth/invalid-credential': 'Wrong email or password.',
+  'auth/user-not-found': 'No account with that email.',
+  'auth/wrong-password': 'Wrong email or password.',
+  'auth/too-many-requests': 'Too many attempts — wait a minute and try again.',
+  'auth/unauthorized-domain': 'Add this domain under Firebase console > Authentication > Settings > Authorized domains.',
+  'auth/popup-blocked': 'Your browser blocked the popup. Allow popups for this site.',
+  'auth/operation-not-allowed': 'Enable this sign-in provider under Firebase console > Authentication > Sign-in method.',
+};
+
+function describeAuthError(err: unknown): string {
+  const code = (err as { code?: string })?.code || 'unknown';
+  return SIGN_IN_HINTS[code] ?? `Sign-in failed (${code})`;
+}
+
 function AdminLogin() {
   useDocumentTitle('Admin Login');
-  const { login } = useAdminAuth();
-  const [username, setUsername] = useState('');
+  const { user, login, loginWithGoogle, logout } = useAuth();
+  const { checking, detail } = useAdminAuth();
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const attempt = async (run: () => Promise<unknown>) => {
+    setError('');
+    setBusy(true);
+    try {
+      await run();
+    } catch (err) {
+      setError(describeAuthError(err));
+    }
+    setBusy(false);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!username || !password) {
-      setError('Please enter both username and password.');
+    if (!email || !password) {
+      setError('Please enter both email and password.');
       return;
     }
-    const ok = login(username, password);
-    if (!ok) {
-      setError('Invalid credentials. Please try again.');
-    }
+    void attempt(() => login(email, password));
   };
+
+  // Signed in, checked, and refused — the account simply isn't an admin.
+  const signedInNotAdmin = user && !checking;
 
   return (
     <div className="admin-login">
@@ -101,35 +128,60 @@ function AdminLogin() {
           </svg>
         </div>
         <h1 className="admin-login__title">Admin Panel</h1>
-        <p className="admin-login__subtitle">Sign in to manage your store</p>
-        {error && <div className="admin-login__error">{error}</div>}
-        <form className="admin-login__form" onSubmit={handleSubmit}>
-          <div className="admin-login__field">
-            <label className="admin-login__label">Username</label>
-            <input
-              className="admin-login__input"
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="admin"
-              autoComplete="username"
-            />
-          </div>
-          <div className="admin-login__field">
-            <label className="admin-login__label">Password</label>
-            <input
-              className="admin-login__input"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="········"
-              autoComplete="current-password"
-            />
-          </div>
-          <button type="submit" className="admin-login__btn">
-            Sign In
-          </button>
-        </form>
+
+        {signedInNotAdmin ? (
+          <>
+            <p className="admin-login__subtitle">
+              Signed in as <strong>{user.email}</strong>, which isn't an admin account.
+            </p>
+            <div className="admin-login__error">
+              Add a document at <code>admins/{user.uid}</code> in the Firebase console, then reload.
+            </div>
+            {detail && <p className="admin-identity__diag">{detail}</p>}
+            <button className="admin-login__btn" onClick={() => logout()}>
+              Sign in as someone else
+            </button>
+          </>
+        ) : (
+          <>
+            <p className="admin-login__subtitle">Sign in with your admin account</p>
+            {error && <div className="admin-login__error">{error}</div>}
+            <form className="admin-login__form" onSubmit={handleSubmit}>
+              <div className="admin-login__field">
+                <label className="admin-login__label">Email</label>
+                <input
+                  className="admin-login__input"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  autoComplete="username"
+                />
+              </div>
+              <div className="admin-login__field">
+                <label className="admin-login__label">Password</label>
+                <input
+                  className="admin-login__input"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="········"
+                  autoComplete="current-password"
+                />
+              </div>
+              <button type="submit" className="admin-login__btn" disabled={busy || checking}>
+                {busy || checking ? 'Signing in…' : 'Sign In'}
+              </button>
+            </form>
+            <button
+              className="admin-login__btn admin-login__btn--alt"
+              disabled={busy || checking}
+              onClick={() => void attempt(loginWithGoogle)}
+            >
+              Continue with Google
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
@@ -1668,102 +1720,14 @@ function Dashboard() {
 // The password above is a client-side gate — Firestore rules can't trust it, so remote
 // reads run as whoever is signed in with Firebase. This says so out loud instead of
 // letting the dashboard look empty for no visible reason.
-const SIGN_IN_HINTS: Record<string, string> = {
-  'auth/unauthorized-domain': 'add this exact domain under Firebase console > Authentication > Settings > Authorized domains.',
-  'auth/popup-blocked': 'your browser blocked the popup. Allow popups for this site and try again.',
-  'auth/operation-not-allowed': 'enable the Google provider under Firebase console > Authentication > Sign-in method.',
-  'auth/popup-closed-by-user': 'the popup was closed before finishing.',
-};
-
-function FirebaseAdminBanner() {
-  const { user, loading, loginWithGoogle } = useAuth();
-  const [status, setStatus] = useState<AdminCheck | 'checking'>('checking');
-  const [detail, setDetail] = useState('');
-  const [copied, setCopied] = useState(false);
-  const [signInError, setSignInError] = useState('');
-
-  useEffect(() => {
-    if (!user) return;
-    let cancelled = false;
-    checkAdminAccess().then((result) => {
-      if (cancelled) return;
-      setStatus(result.status);
-      setDetail(result.detail);
-    });
-    return () => { cancelled = true; };
-  }, [user]);
-
-  if (!db) return null; // Firebase not configured — local-only is the expected mode
-  if (loading) return null; // wait for the stored session to come back
-  if (user && (status === 'checking' || status === 'ok')) return null;
-
-  const copyUid = async () => {
-    if (!user) return;
-    await navigator.clipboard.writeText(user.uid);
-    setCopied(true);
-  };
-
-  // A fresh sign-in doesn't retrigger the data effects, so reload once it lands.
-  const signIn = async () => {
-    setSignInError('');
-    try {
-      if (await loginWithGoogle()) window.location.reload();
-    } catch (err) {
-      const code = (err as { code?: string })?.code || 'unknown';
-      setSignInError(SIGN_IN_HINTS[code] ? `${code} — ${SIGN_IN_HINTS[code]}` : `Sign-in failed (${code})`);
-    }
-  };
-
-  const uidButton = (
-    <button className="admin-identity__btn" onClick={copyUid}>
-      {copied ? 'Copied' : 'Copy my UID'}
-    </button>
-  );
-
-  return (
-    <div className="admin-identity">
-      <strong className="admin-identity__title">Showing local data only</strong>
-      {!user ? (
-        <>
-          <p className="admin-identity__text">
-            Orders, messages and reviews from customers live in Firestore, which needs a
-            signed-in admin account. This browser isn't signed in.
-          </p>
-          <button className="admin-identity__btn" onClick={signIn}>Sign in with Google</button>
-          {signInError && <p className="admin-identity__error">{signInError}</p>}
-        </>
-      ) : status === 'unavailable' ? (
-        <p className="admin-identity__text">
-          Couldn't reach Firestore to check admin access. Check your connection and reload.
-        </p>
-      ) : (
-        <>
-          <p className="admin-identity__text">
-            Firestore won't hand over order data to <strong>{user.email}</strong>. In the Firebase
-            console create a document at <code>admins/{user.uid}</code> (any contents), then
-            reload. If it's already there, the published rules are missing the{' '}
-            <code>isAdmin()</code> clause on <code>orders</code>.
-          </p>
-          <p className="admin-identity__diag">{detail}</p>
-          {uidButton}
-        </>
-      )}
-    </div>
-  );
-}
-
 /* ===== Router ===== */
 export default function Admin() {
-  const { isAuthenticated } = useAdminAuth();
+  const { isAuthenticated, checking } = useAdminAuth();
 
-  if (!isAuthenticated) {
-    return <AdminLogin />;
+  // Without this the login card flashes before the stored session comes back.
+  if (checking) {
+    return <div className="admin-login"><div className="admin-login__card">Checking access…</div></div>;
   }
 
-  return (
-    <>
-      <FirebaseAdminBanner />
-      <Dashboard />
-    </>
-  );
+  return isAuthenticated ? <Dashboard /> : <AdminLogin />;
 }

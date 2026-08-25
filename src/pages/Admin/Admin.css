@@ -1660,57 +1660,12 @@
   .dashboard__main   { padding: 16px; }
 }
 
-/* ===== Firebase admin identity banner ===== */
-.admin-identity {
-  max-width: 720px;
-  margin: 24px auto 0;
-  padding: 16px 20px;
-  border: 1px solid #fcd34d;
-  border-left-width: 4px;
-  border-radius: var(--radius-md);
-  background: #fffbeb;
-  color: #78350f;
-}
-
-.admin-identity__title {
-  display: block;
-  font-size: 0.95rem;
-}
-
-.admin-identity__text {
-  margin: 6px 0 12px;
-  font-size: 0.88rem;
-  line-height: 1.5;
-}
-
-.admin-identity__text code {
-  padding: 2px 6px;
-  border-radius: var(--radius-sm);
-  background: rgba(120, 53, 15, 0.1);
-  font-size: 0.82rem;
-  overflow-wrap: anywhere;
-}
-
-.admin-identity__btn {
-  padding: 8px 16px;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: #78350f;
-  color: #fff;
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.admin-identity__btn:hover {
-  background: #92400e;
-}
-
-.admin-identity__error {
-  margin: 10px 0 0;
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: #b91c1c;
+/* Secondary action on the admin login card (Google sign-in / switch account). */
+.admin-login__btn--alt {
+  margin-top: 10px;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
 }
 
 .admin-identity__diag {

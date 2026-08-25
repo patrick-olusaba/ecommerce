@@ -1,45 +1,43 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
-
-const STORAGE_KEY = 'avytrendy_admin_auth';
+import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import { useAuth } from './AuthContext';
+import { checkAdminAccess } from '../firebase/firestore';
 
 interface AdminAuthContextType {
+  /** Firestore granted this session admin access — not a client-side password guess. */
   isAuthenticated: boolean;
-  login: (username: string, password: string) => boolean;
-  logout: () => void;
+  checking: boolean;
+  /** Diagnostic string from the access probe, shown on the login card when it fails. */
+  detail: string;
+  logout: () => Promise<void>;
 }
 
 const AdminAuthContext = createContext<AdminAuthContextType | undefined>(undefined);
 
-const DEMO_USERNAME = import.meta.env.VITE_ADMIN_USERNAME || 'admin';
-const DEMO_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD || 'admin123';
-
-function getStoredAuth(): boolean {
-  try {
-    return localStorage.getItem(STORAGE_KEY) === 'true';
-  } catch {
-    return false;
-  }
-}
-
 export function AdminAuthProvider({ children }: { children: ReactNode }) {
-  const [isAuthenticated, setIsAuthenticated] = useState(getStoredAuth);
+  const { user, loading, logout } = useAuth();
+  const [checked, setChecked] = useState<{ uid: string; isAdmin: boolean; detail: string } | null>(null);
 
-  const login = useCallback((username: string, password: string): boolean => {
-    if (username === DEMO_USERNAME && password === DEMO_PASSWORD) {
-      setIsAuthenticated(true);
-      localStorage.setItem(STORAGE_KEY, 'true');
-      return true;
-    }
-    return false;
-  }, []);
+  useEffect(() => {
+    if (loading || !user) return;
+    let cancelled = false;
+    checkAdminAccess().then((result) => {
+      if (!cancelled) setChecked({ uid: user.uid, isAdmin: result.status === 'ok', detail: result.detail });
+    });
+    return () => { cancelled = true; };
+  }, [user, loading]);
 
-  const logout = useCallback(() => {
-    setIsAuthenticated(false);
-    localStorage.removeItem(STORAGE_KEY);
-  }, []);
+  // Derived rather than stored, so a sign-out or account switch can't leave a stale yes.
+  const current = user && checked?.uid === user.uid ? checked : null;
 
   return (
-    <AdminAuthContext.Provider value={{ isAuthenticated, login, logout }}>
+    <AdminAuthContext.Provider
+      value={{
+        isAuthenticated: Boolean(current?.isAdmin),
+        checking: loading || (Boolean(user) && current === null),
+        detail: current?.detail ?? '',
+        logout,
+      }}
+    >
       {children}
     </AdminAuthContext.Provider>
   );
