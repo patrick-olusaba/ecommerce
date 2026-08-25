@@ -1,5 +1,5 @@
 import { collection, doc, addDoc, setDoc, updateDoc, getDoc, getDocs, query, where, orderBy } from 'firebase/firestore';
-import { db } from './config';
+import { db, auth } from './config';
 
 // Firestore rejects undefined values outright, nested ones included — drop them
 // instead of throwing.
@@ -71,7 +71,14 @@ export async function checkAdmin(uid: string): Promise<AdminCheck> {
     const snap = await getDoc(doc(db, 'admins', uid));
     return snap.exists() ? 'ok' : 'not-listed';
   } catch (err) {
-    return (err as { code?: string })?.code === 'permission-denied' ? 'denied' : 'unavailable';
+    // Logged because a silent permission-denied here is indistinguishable from
+    // "you're just not an admin", and the two need completely different fixes.
+    const { code, message } = (err ?? {}) as { code?: string; message?: string };
+    console.error('[admin check] admins/%s failed:', uid, code, message, {
+      signedInUid: auth?.currentUser?.uid,
+      projectId: db.app.options.projectId,
+    });
+    return code === 'permission-denied' ? 'denied' : 'unavailable';
   }
 }
 
