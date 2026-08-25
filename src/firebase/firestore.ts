@@ -74,10 +74,12 @@ export async function checkAdmin(uid: string): Promise<AdminCheck> {
     // Logged because a silent permission-denied here is indistinguishable from
     // "you're just not an admin", and the two need completely different fixes.
     const { code, message } = (err ?? {}) as { code?: string; message?: string };
-    console.error('[admin check] admins/%s failed:', uid, code, message, {
-      signedInUid: auth?.currentUser?.uid,
-      projectId: db.app.options.projectId,
-    });
+    console.error(
+      `[admin check] admins/${uid} -> ${code}: ${message}` +
+      ` | signedInUid=${auth?.currentUser?.uid ?? 'NONE'}` +
+      ` | tokenAge=${auth?.currentUser ? 'present' : 'none'}` +
+      ` | projectId=${db.app.options.projectId}`
+    );
     return code === 'permission-denied' ? 'denied' : 'unavailable';
   }
 }
