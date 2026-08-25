@@ -65,22 +65,36 @@ export type AdminCheck = 'ok' | 'not-listed' | 'denied' | 'unavailable';
  * Is this uid in /admins? Unlike getDocument, a rules rejection is reported rather
  * than collapsed into "no such doc" — the two need different fixes.
  */
-export async function checkAdmin(uid: string): Promise<AdminCheck> {
-  if (!db) return 'unavailable';
+export interface AdminCheckResult {
+  status: AdminCheck;
+  /** Shown in the UI — a denied check is otherwise impossible to tell apart from "not an admin". */
+  detail: string;
+}
+
+export async function checkAdmin(uid: string): Promise<AdminCheckResult> {
+  if (!db) return { status: 'unavailable', detail: 'Firebase is not configured in this build.' };
+
+  // A request that goes out before the ID token attaches has request.auth == null,
+  // which the rules deny — indistinguishable from a rules problem. Rule it out.
+  let tokenOk = false;
+  try {
+    tokenOk = Boolean(await auth?.currentUser?.getIdToken());
+  } catch {
+    tokenOk = false;
+  }
+
+  const context = `signed-in-uid=${auth?.currentUser?.uid ?? 'NONE'} token=${tokenOk ? 'ok' : 'MISSING'} project=${db.app.options.projectId}`;
+
   try {
     const snap = await getDoc(doc(db, 'admins', uid));
-    return snap.exists() ? 'ok' : 'not-listed';
+    return { status: snap.exists() ? 'ok' : 'not-listed', detail: context };
   } catch (err) {
-    // Logged because a silent permission-denied here is indistinguishable from
-    // "you're just not an admin", and the two need completely different fixes.
     const { code, message } = (err ?? {}) as { code?: string; message?: string };
-    console.error(
-      `[admin check] admins/${uid} -> ${code}: ${message}` +
-      ` | signedInUid=${auth?.currentUser?.uid ?? 'NONE'}` +
-      ` | tokenAge=${auth?.currentUser ? 'present' : 'none'}` +
-      ` | projectId=${db.app.options.projectId}`
-    );
-    return code === 'permission-denied' ? 'denied' : 'unavailable';
+    console.error(`[admin check] admins/${uid} -> ${code}: ${message} | ${context}`);
+    return {
+      status: code === 'permission-denied' ? 'denied' : 'unavailable',
+      detail: `${code} | ${context}`,
+    };
   }
 }
 

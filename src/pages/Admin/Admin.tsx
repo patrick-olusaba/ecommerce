@@ -1678,6 +1678,7 @@ const SIGN_IN_HINTS: Record<string, string> = {
 function FirebaseAdminBanner() {
   const { user, loading, loginWithGoogle } = useAuth();
   const [status, setStatus] = useState<AdminCheck | 'checking'>('checking');
+  const [detail, setDetail] = useState('');
   const [copied, setCopied] = useState(false);
   const [signInError, setSignInError] = useState('');
 
@@ -1685,7 +1686,9 @@ function FirebaseAdminBanner() {
     if (!user) return;
     let cancelled = false;
     checkAdmin(user.uid).then((result) => {
-      if (!cancelled) setStatus(result);
+      if (cancelled) return;
+      setStatus(result.status);
+      setDetail(result.detail);
     });
     return () => { cancelled = true; };
   }, [user]);
@@ -1732,10 +1735,11 @@ function FirebaseAdminBanner() {
       ) : status === 'denied' ? (
         <>
           <p className="admin-identity__text">
-            Firestore refused the admin check for <strong>{user.email}</strong>. The rules in{' '}
-            <code>firestore.rules</code> aren't published yet — paste the current version into
-            Firebase console &rarr; Firestore Database &rarr; Rules and hit Publish, then reload.
+            Firestore refused the admin check for <strong>{user.email}</strong>. Either the rules
+            in <code>firestore.rules</code> aren't the ones published, or App Check is enforcing
+            on Firestore.
           </p>
+          <p className="admin-identity__diag">{detail}</p>
           {uidButton}
         </>
       ) : status === 'unavailable' ? (

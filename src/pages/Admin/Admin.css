@@ -1712,3 +1712,13 @@
   font-weight: 600;
   color: #b91c1c;
 }
+
+.admin-identity__diag {
+  margin: 0 0 12px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: rgba(120, 53, 15, 0.08);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.76rem;
+  overflow-wrap: anywhere;
+}
