@@ -18,6 +18,7 @@ import Contact from './pages/Contact/Contact';
 import FAQ from './pages/FAQ/FAQ';
 import Search from './pages/Search/Search';
 import Auth from './pages/Auth/Auth';
+import Account from './pages/Account/Account';
 import Privacy from './pages/Privacy/Privacy';
 import SizeGuide from './pages/SizeGuide/SizeGuide';
 import Product from './pages/Product/Product';
@@ -155,6 +156,7 @@ function StoreLayout() {
             <Route path="/faq" element={<FAQ />} />
             <Route path="/search" element={<Search />} />
             <Route path="/auth" element={<Auth />} />
+            <Route path="/account" element={<Account />} />
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/size-guide" element={<SizeGuide />} />
             <Route path="/product/:id" element={<Product />} />

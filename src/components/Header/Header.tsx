@@ -231,6 +231,9 @@ export default function Header() {
                         <span className="header__user-dialog-email">{user.email}</span>
                       </div>
                       <div className="header__user-dialog-links">
+                        <Link to="/account" className="header__user-dialog-link" onClick={() => setUserMenuOpen(false)}>
+                          My Orders
+                        </Link>
                         <Link to="/track-order" className="header__user-dialog-link" onClick={() => setUserMenuOpen(false)}>
                           Track Order
                         </Link>

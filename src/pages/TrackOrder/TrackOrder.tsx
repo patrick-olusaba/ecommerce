@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { getSales, getOrderStatus } from '../../utils/salesStorage';
+import { getSales, getOrderStatus, findOrder } from '../../utils/salesStorage';
 import useDocumentTitle from '../../hooks/useDocumentTitle';
 import { formatKSh } from '../../utils/currency';
 import './TrackOrder.css';
@@ -22,14 +22,12 @@ export default function TrackOrder() {
   const allSales = useMemo(() => getSales(), [refreshKey]);
   const demoIds = useMemo(() => allSales.slice(0, 3).map((s) => s.id), [allSales]);
 
-  const refreshTracking = useCallback(() => {
+  const refreshTracking = useCallback(async () => {
     setRefreshKey((n) => n + 1);
-    setTracking((prev) => {
-      if (!prev) return null;
-      const updated = getSales().find((s) => s.id === prev.id);
-      return updated ?? prev;
-    });
-  }, []);
+    if (!tracking) return;
+    const updated = await findOrder(tracking.id);
+    if (updated) setTracking(updated);
+  }, [tracking]);
 
   // Auto-refresh every 60s while tracking an order
   useEffect(() => {
@@ -39,24 +37,21 @@ export default function TrackOrder() {
     }
   }, [tracking, refreshTracking]);
 
-  const handleTrack = (e: React.FormEvent) => {
-    e.preventDefault();
-    const normalized = orderNumber.trim().toUpperCase();
-    // Always read fresh for a new search
-    const fresh = getSales();
-    const result = fresh.find((s) => s.id === normalized) ?? null;
-    setTracking(result);
+  // Checks Firestore too, so an order placed on another device still tracks here.
+  const lookup = async (id: string) => {
+    setTracking(await findOrder(id));
     setSearched(true);
     setRefreshKey((n) => n + 1);
   };
 
+  const handleTrack = (e: React.FormEvent) => {
+    e.preventDefault();
+    void lookup(orderNumber.trim().toUpperCase());
+  };
+
   const handleDemoClick = (orderId: string) => {
     setOrderNumber(orderId);
-    const fresh = getSales();
-    const result = fresh.find((s) => s.id === orderId) ?? null;
-    setTracking(result);
-    setSearched(true);
-    setRefreshKey((n) => n + 1);
+    void lookup(orderId);
   };
 
   const status = tracking ? getOrderStatus(tracking) : 0;

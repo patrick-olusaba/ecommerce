@@ -1,3 +1,5 @@
+import { setDocument, updateDocument, getDocument, getDocuments } from '../firebase/firestore';
+
 const STORAGE_KEY = 'avytrendy_sales';
 
 export interface SaleItem {
@@ -7,6 +9,13 @@ export interface SaleItem {
   price: number;
 }
 
+export interface Customer {
+  name?: string;
+  address?: string;
+  city?: string;
+  postalCode?: string;
+}
+
 export interface Sale {
   id: string;
   date: string;
@@ -14,9 +23,11 @@ export interface Sale {
   total: number;
   itemCount: number;
   status?: number;
+  uid?: string;
   email?: string;
   phone?: string;
   paymentMethod?: string;
+  customer?: Customer;
 }
 
 export function updateOrderStatus(orderId: string, status: number): void {
@@ -26,6 +37,7 @@ export function updateOrderStatus(orderId: string, status: number): void {
     order.status = status;
     saveAllSales(sales);
   }
+  void updateDocument('orders', orderId, { status });
 }
 
 export function getOrderStatus(order: Sale): number {
@@ -192,10 +204,41 @@ function seedDemoSales(): Sale[] {
   return demoSales;
 }
 
-export function recordSale(sale: Sale): void {
+/**
+ * Local write is synchronous so the UI can move on; the Firestore write is what
+ * actually reaches the shop owner. Resolves false when Firebase is unconfigured
+ * or offline — the order still lives in this browser either way.
+ */
+export function recordSale(sale: Sale): Promise<boolean> {
   const sales = getAllSales();
   sales.push(sale);
   saveAllSales(sales);
+  return setDocument('orders', sale.id, { ...sale, createdAt: sale.date });
+}
+
+/** Merge remote orders into the local cache so the sync readers below see them. */
+export async function syncOrders(): Promise<void> {
+  const remote = await getDocuments<Sale>('orders');
+  if (remote.length === 0) return;
+  mergeIntoLocal(remote);
+}
+
+/** Look up one order by number, falling back to Firestore for orders placed elsewhere. */
+export async function findOrder(orderId: string): Promise<Sale | null> {
+  const local = getAllSales().find((s) => s.id === orderId);
+  const remote = await getDocument<Sale>('orders', orderId);
+  if (remote) {
+    mergeIntoLocal([remote]);
+    return remote;
+  }
+  return local ?? null;
+}
+
+// Remote wins on conflict: an admin on another device may have moved the status on.
+function mergeIntoLocal(remote: Sale[]): void {
+  const byId = new Map(getAllSales().map((s) => [s.id, s]));
+  for (const order of remote) byId.set(order.id, { ...byId.get(order.id), ...order });
+  saveAllSales([...byId.values()]);
 }
 
 export function getSales(): Sale[] {

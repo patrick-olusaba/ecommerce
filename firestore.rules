@@ -1,0 +1,50 @@
+rules_version = '2';
+
+// Paste this into Firebase console > Firestore > Rules (or deploy with the CLI).
+// Without it, every write below is denied and orders never leave the buyer's browser.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // A signed-in user listed in /admins can read everything the dashboard shows.
+    // Create the doc yourself: admins/<your-auth-uid> (any contents), then sign in
+    // with that account before opening /admin.
+    function isAdmin() {
+      return request.auth != null && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    match /admins/{uid} {
+      // You may check whether YOU are an admin — that's how /admin knows to warn you.
+      allow get: if request.auth != null && request.auth.uid == uid;
+      allow list, write: if false; // membership is granted in the console only
+    }
+
+    match /orders/{orderId} {
+      allow create: if true;
+      // ponytail: a single-order read is public so guests can track without an account.
+      // The order number is the secret, and AVT-###### is guessable — tighten to
+      // `request.auth != null && resource.data.uid == request.auth.uid` if that matters
+      // more than guest tracking does.
+      allow get: if true;
+      // Buyers list only their own orders; the dashboard lists all of them.
+      allow list: if isAdmin() || (request.auth != null && resource.data.uid == request.auth.uid);
+      allow update: if isAdmin();
+      allow delete: if false;
+    }
+
+    match /reviews/{id} {
+      allow create: if true;
+      allow read: if true;
+      allow update, delete: if isAdmin();
+    }
+
+    match /messages/{id} {
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
+    }
+
+    match /subscribers/{id} {
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
+    }
+  }
+}

@@ -2,16 +2,48 @@ import { useState, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
 import { useToast } from '../../context/ToastContext';
+import { useAuth } from '../../context/AuthContext';
 import { recordSale } from '../../utils/salesStorage';
 import useDocumentTitle from '../../hooks/useDocumentTitle';
 import { formatKSh, FREE_SHIPPING_THRESHOLD, SHIPPING_COST } from '../../utils/currency';
 import './Checkout.css';
 
+/** Posts to the Vercel function in api/send-order-email.js. False = nothing was sent. */
+async function sendOrderEmail(
+  to: string,
+  orderId: string,
+  items: { name: string; quantity: number; price: number }[],
+  total: number,
+  shipping: number
+): Promise<boolean> {
+  if (!to) return false;
+  try {
+    const res = await fetch('/api/send-order-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to,
+        orderId,
+        items: items.map(({ name, quantity, price }) => ({ name, quantity, price })),
+        total,
+        shipping,
+      }),
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    return data?.sent === true;
+  } catch {
+    return false; // no api route in dev, or offline
+  }
+}
+
 export default function Checkout() {
   useDocumentTitle('Checkout');
   const { items, total, clearCart, removeItem } = useCart();
   const { addToast } = useToast();
+  const { user } = useAuth();
   const [placed, setPlaced] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'mpesa' | 'cod'>('mpesa');
   const [clearConfirm, setClearConfirm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -29,7 +61,7 @@ export default function Checkout() {
 
   const KENYA_PHONE_RE = /^(?:\+?254|0)(7\d{8})$/;
 
-  const handlePlaceOrder = (e: React.FormEvent) => {
+  const handlePlaceOrder = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setPhoneError('');
 
@@ -41,26 +73,46 @@ export default function Checkout() {
       }
     }
 
+    const form = new FormData(e.currentTarget);
+    const field = (name: string) => (form.get(name) as string | null)?.trim() || undefined;
+
     setSubmitting(true);
     orderDate.current = new Date();
-    recordSale({
-      id: orderNumber.current,
-      date: orderDate.current.toISOString(),
-      items: items.map((item) => ({
-        productId: item.product.id,
-        name: item.product.name,
-        quantity: item.quantity,
-        price: item.product.price,
-      })),
-      total: grandTotal,
-      itemCount: items.reduce((sum, i) => sum + i.quantity, 0),
-      email: email.trim() || undefined,
-      phone: paymentMethod === 'mpesa' ? mpesaPhone.trim() : undefined,
-      paymentMethod,
-    });
+    const saleItems = items.map((item) => ({
+      productId: item.product.id,
+      name: item.product.name,
+      quantity: item.quantity,
+      price: item.product.price,
+    }));
+    const buyerEmail = email.trim();
+
+    // Both writes are best-effort: the order is already in this browser either way.
+    const [, mailed] = await Promise.all([
+      recordSale({
+        id: orderNumber.current,
+        date: orderDate.current.toISOString(),
+        items: saleItems,
+        total: grandTotal,
+        itemCount: items.reduce((sum, i) => sum + i.quantity, 0),
+        uid: user?.uid,
+        email: buyerEmail || undefined,
+        phone: paymentMethod === 'mpesa' ? mpesaPhone.trim() : field('phone'),
+        paymentMethod,
+        customer: {
+          name: [field('firstName'), field('lastName')].filter(Boolean).join(' ') || undefined,
+          address: field('address'),
+          city: field('city'),
+          postalCode: field('postalCode'),
+        },
+      }),
+      sendOrderEmail(buyerEmail, orderNumber.current, saleItems, grandTotal, shipping),
+    ]);
+
+    setEmailSent(mailed);
     setPlacedItems([...items]);
     setPlacedGrandTotal(grandTotal);
     setPlaced(true);
+    setSubmitting(false);
     clearCart();
   };
 
@@ -145,7 +197,11 @@ export default function Checkout() {
             <p className="checkout-success__number">Order #{orderNumber.current}</p>
             {email && (
               <p className="checkout-success__email">
-                A confirmation has been sent to <strong>{email}</strong>
+                {emailSent ? (
+                  <>A confirmation has been sent to <strong>{email}</strong></>
+                ) : (
+                  <>We'll contact you on <strong>{email}</strong> to confirm this order</>
+                )}
               </p>
             )}
             <div className="checkout-success__summary">
@@ -200,7 +256,7 @@ export default function Checkout() {
                 />
               </div>
               <div className="checkout__row">
-                <input type="tel" placeholder="Phone number" className="checkout__input" />
+                <input type="tel" name="phone" placeholder="Phone number" className="checkout__input" />
               </div>
             </fieldset>
 
@@ -210,20 +266,21 @@ export default function Checkout() {
               <div className="checkout__row checkout__row--half">
                 <input
                   type="text"
+                  name="firstName"
                   placeholder="First name"
                   required
                   className="checkout__input"
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
                 />
-                <input type="text" placeholder="Last name" required className="checkout__input" />
+                <input type="text" name="lastName" placeholder="Last name" required className="checkout__input" />
               </div>
               <div className="checkout__row">
-                <input type="text" placeholder="Address" required className="checkout__input" />
+                <input type="text" name="address" placeholder="Address" required className="checkout__input" />
               </div>
               <div className="checkout__row checkout__row--half">
-                <input type="text" placeholder="City" required className="checkout__input" />
-                <input type="text" placeholder="Postal code" required className="checkout__input" />
+                <input type="text" name="city" placeholder="City" required className="checkout__input" />
+                <input type="text" name="postalCode" placeholder="Postal code" required className="checkout__input" />
               </div>
               <div className="checkout__row">
                 <select required className="checkout__input checkout__select" defaultValue="KE">

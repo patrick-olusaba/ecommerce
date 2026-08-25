@@ -3,10 +3,13 @@ import { getAdminProducts, saveAdminProduct, updateAdminProduct, deleteAdminProd
 import { getAllProducts } from '../../data/products';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import useDocumentTitle from '../../hooks/useDocumentTitle';
-import { getSales, getTodaySales, getWeekSales, getMonthSales, getSalesTotal, getItemsSold, getDailyRevenue, getTopProducts, getSalesForPeriod, getOrderStatus, updateOrderStatus } from '../../utils/salesStorage';
+import { getSales, getTodaySales, getWeekSales, getMonthSales, getSalesTotal, getItemsSold, getDailyRevenue, getTopProducts, getSalesForPeriod, getOrderStatus, updateOrderStatus, syncOrders } from '../../utils/salesStorage';
 import { formatKSh } from '../../utils/currency';
-import { getDocuments } from '../../firebase/firestore';
-import type { Product, Sale } from '../../types';
+import { getDocuments, getDocument } from '../../firebase/firestore';
+import { db } from '../../firebase/config';
+import { useAuth } from '../../context/AuthContext';
+import type { Product } from '../../types';
+import type { Sale } from '../../utils/salesStorage';
 import './Admin.css';
 
 function exportCSV(sales: Sale[]) {
@@ -146,7 +149,8 @@ function Dashboard() {
   const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'add' | 'sales' | 'orders' | 'subscribers' | 'messages' | 'reviews'>('overview');
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
   const [expandedMessage, setExpandedMessage] = useState<string | null>(null);
-  const [salesRefresh, setSalesRefresh] = useState(0);
+  // Only the setter is used — bumping it re-runs the getSales() reads below.
+  const [, setSalesRefresh] = useState(0);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [period, setPeriod] = useState<'today' | 'week' | 'month'>('month');
   const [orderSearch, setOrderSearch] = useState('');
@@ -156,6 +160,11 @@ function Dashboard() {
   const [firestoreSubs, setFirestoreSubs] = useState<{ email: string; date: string }[]>([]);
   const [firestoreMessages, setFirestoreMessages] = useState<{ id: string; name: string; email: string; subject: string; message: string; date: string }[]>([]);
   const [firestoreReviews, setFirestoreReviews] = useState<{ id: string; productId: number; name: string; rating: number; comment: string; date: string }[]>([]);
+
+  // Pull orders placed on customers' devices into the local cache the dashboard reads.
+  useEffect(() => {
+    void syncOrders().then(() => setSalesRefresh((n) => n + 1));
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -1655,6 +1664,69 @@ function Dashboard() {
   );
 }
 
+/* ===== Firebase admin identity ===== */
+// The password above is a client-side gate — Firestore rules can't trust it, so remote
+// reads run as whoever is signed in with Firebase. This says so out loud instead of
+// letting the dashboard look empty for no visible reason.
+function FirebaseAdminBanner() {
+  const { user, loginWithGoogle } = useAuth();
+  const [status, setStatus] = useState<'checking' | 'ok' | 'not-listed'>('checking');
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    getDocument('admins', user.uid).then((doc) => {
+      if (!cancelled) setStatus(doc ? 'ok' : 'not-listed');
+    });
+    return () => { cancelled = true; };
+  }, [user]);
+
+  if (!db) return null; // Firebase not configured — local-only is the expected mode
+  if (user && status !== 'not-listed') return null; // checking, or all good
+
+  const copyUid = async () => {
+    if (!user) return;
+    await navigator.clipboard.writeText(user.uid);
+    setCopied(true);
+  };
+
+  // A fresh sign-in doesn't retrigger the data effects, so reload once it lands.
+  const signIn = async () => {
+    try {
+      if (await loginWithGoogle()) window.location.reload();
+    } catch {
+      // popup closed or blocked — nothing to do
+    }
+  };
+
+  return (
+    <div className="admin-identity">
+      <strong className="admin-identity__title">Showing local data only</strong>
+      {!user ? (
+        <>
+          <p className="admin-identity__text">
+            Orders, messages and reviews from customers live in Firestore, which needs a
+            signed-in admin account. This browser isn't signed in.
+          </p>
+          <button className="admin-identity__btn" onClick={signIn}>Sign in with Google</button>
+        </>
+      ) : (
+        <>
+          <p className="admin-identity__text">
+            Signed in as <strong>{user.email}</strong>, but this account isn't an admin yet.
+            In the Firebase console create a document at <code>admins/{user.uid}</code>
+            {' '}(any contents), then reload.
+          </p>
+          <button className="admin-identity__btn" onClick={copyUid}>
+            {copied ? 'Copied' : 'Copy my UID'}
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
 /* ===== Router ===== */
 export default function Admin() {
   const { isAuthenticated } = useAdminAuth();
@@ -1663,5 +1735,10 @@ export default function Admin() {
     return <AdminLogin />;
   }
 
-  return <Dashboard />;
+  return (
+    <>
+      <FirebaseAdminBanner />
+      <Dashboard />
+    </>
+  );
 }

@@ -1,4 +1,4 @@
-import { useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { useState, useMemo, useEffect } from 'react';
 import { searchProducts } from '../../data/products';
 import useDocumentTitle from '../../hooks/useDocumentTitle';
