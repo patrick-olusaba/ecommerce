@@ -85,8 +85,12 @@ export default async function handler(req, res) {
       }),
     });
     if (!resp.ok) {
-      console.error('Resend rejected order email', resp.status, await resp.text());
-      return res.status(200).json({ sent: false, error: 'Provider rejected the email' });
+      // ponytail: pass the provider's message straight through. Buried in Vercel
+      // logs it is useless; the usual one is "you can only send testing emails to
+      // your own address" — an unverified sender domain.
+      const detail = await resp.text();
+      console.error('Resend rejected order email', resp.status, detail);
+      return res.status(200).json({ sent: false, error: `Resend ${resp.status}: ${detail.slice(0, 300)}` });
     }
     return res.status(200).json({ sent: true });
   } catch (err) {
