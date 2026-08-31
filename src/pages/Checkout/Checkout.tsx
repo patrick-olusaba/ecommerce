@@ -29,11 +29,17 @@ async function sendOrderEmail(
         shipping,
       }),
     });
-    if (!res.ok) return false;
+    if (!res.ok) {
+      console.warn(`[order email] /api/send-order-email returned HTTP ${res.status}.` +
+        ' On "npm run dev" this is expected — Vite does not run Vercel functions. Use `npx vercel dev` or the deployed site.');
+      return false;
+    }
     const data = await res.json();
+    if (data?.sent !== true) console.warn('[order email] not sent:', data?.error ?? data);
     return data?.sent === true;
-  } catch {
-    return false; // no api route in dev, or offline
+  } catch (err) {
+    console.warn('[order email] request failed:', err);
+    return false;
   }
 }
 

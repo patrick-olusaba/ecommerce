@@ -1,4 +1,4 @@
-// Run: node --test tests/
+// Run: node --test tests/order-email.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildOrderEmail } from '../api/send-order-email.js';
