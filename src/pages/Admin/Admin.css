@@ -1773,7 +1773,11 @@
 .price-row__actions { display: flex; gap: 6px; }
 .price-row__error { grid-column: 1 / -1; color: #ef4444; font-size: 0.78rem; }
 @media (max-width: 640px) {
-  .price-row { grid-template-columns: 44px minmax(0, 1fr) 1fr 1fr; }
+  /* photo + name on top, then Price | Was, then buttons */
+  .price-row { grid-template-columns: 44px minmax(0, 1fr) minmax(0, 1fr); }
+  .price-row__name { grid-column: 2 / -1; }
+  .price-row > .price-row__field:nth-child(3) { grid-column: 1 / 3; }
+  .price-row__field .admin__input { min-width: 0; width: 100%; }
   .price-row__actions { grid-column: 1 / -1; }
 }
 .price-row__more { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
