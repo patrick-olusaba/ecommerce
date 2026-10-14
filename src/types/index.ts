@@ -13,6 +13,8 @@ export interface Product {
   rating: number;
   reviews: number;
   stock?: number;
+  /** Photos per colour name; a colour without an entry falls back to `images`. */
+  colorImages?: Record<string, string[]>;
 }
 
 export interface CartItem {

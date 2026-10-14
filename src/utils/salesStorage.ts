@@ -37,7 +37,16 @@ export function updateOrderStatus(orderId: string, status: number): void {
     order.status = status;
     saveAllSales(sales);
   }
-  void updateDocument('orders', orderId, { status });
+  // Mail the buyer once Firestore has the new status (the function reads it from there).
+  // Best-effort: buyers with no email, or "Order Placed", simply get nothing.
+  void updateDocument('orders', orderId, { status }).then((ok) => {
+    if (!ok || status < 2) return;
+    return fetch('/api/send-status-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderId }),
+    }).catch(() => undefined);
+  });
 }
 
 export function getOrderStatus(order: Sale): number {

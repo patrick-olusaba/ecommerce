@@ -1,3 +1,5 @@
+import { getDocuments } from '../firebase/firestore';
+
 const STORAGE_KEY = 'avytrendy_reviews';
 
 export interface Review {
@@ -32,6 +34,20 @@ export function addReview(review: Review): void {
     const all: Review[] = raw ? JSON.parse(raw) : [];
     all.push(review);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
+  } catch {
+    // storage full or unavailable
+  }
+}
+
+/** Merge Firestore reviews into the cache so shoppers see each other's reviews. Call once before first render. */
+export async function syncReviews(): Promise<void> {
+  const remote = await getDocuments<Review>('reviews');
+  if (remote.length === 0) return;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    const byId = new Map<string, Review>((raw ? JSON.parse(raw) as Review[] : []).map((r) => [r.id, r]));
+    for (const r of remote) byId.set(r.id, { id: r.id, productId: r.productId, name: r.name, rating: r.rating, comment: r.comment, date: r.date });
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([...byId.values()]));
   } catch {
     // storage full or unavailable
   }

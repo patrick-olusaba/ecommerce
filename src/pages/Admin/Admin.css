@@ -1755,3 +1755,29 @@
   .order-status-cards { grid-template-columns: repeat(2, 1fr); gap: 8px; }
   .dashboard__card-header { flex-wrap: wrap; gap: 6px; }
 }
+
+/* ===== Built-in product price editor ===== */
+.price-list { margin-top: 14px; max-height: 70vh; overflow-y: auto; }
+.price-row {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 110px 110px auto;
+  gap: 10px;
+  align-items: end;
+  padding: 10px 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+.price-row__img { width: 44px; height: 44px; object-fit: cover; border-radius: 8px; align-self: center; }
+.price-row__name { display: flex; flex-direction: column; min-width: 0; align-self: center; font-size: 0.86rem; font-weight: 600; color: #1e293b; }
+.price-row__name small { font-weight: 400; color: #94a3b8; font-size: 0.73rem; }
+.price-row__field { display: flex; flex-direction: column; gap: 2px; font-size: 0.68rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; }
+.price-row__actions { display: flex; gap: 6px; }
+.price-row__error { grid-column: 1 / -1; color: #ef4444; font-size: 0.78rem; }
+@media (max-width: 640px) {
+  .price-row { grid-template-columns: 44px minmax(0, 1fr) 1fr 1fr; }
+  .price-row__actions { grid-column: 1 / -1; }
+}
+.price-row__more { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.price-row__field--wide { grid-column: 1 / -1; }
+@media (max-width: 640px) { .price-row__more { grid-template-columns: 1fr; } }
+
+.color-photos__row { display: flex; flex-direction: column; gap: 6px; padding: 10px 0; border-bottom: 1px solid #f1f5f9; }

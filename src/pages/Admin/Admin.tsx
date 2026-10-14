@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react';
 import { getAdminProducts, saveAdminProduct, updateAdminProduct, deleteAdminProduct, getNextAdminId } from '../../utils/adminStorage';
 import { getAllProducts } from '../../data/products';
 import { useAdminAuth } from '../../context/AdminAuthContext';
+import ProductEditor from './ProductEditor';
+import ColorPhotos from './ColorPhotos';
+import { compressImage, fitsInDoc } from '../../utils/compressImage';
 import useDocumentTitle from '../../hooks/useDocumentTitle';
 import { getSales, getTodaySales, getWeekSales, getMonthSales, getSalesTotal, getItemsSold, getDailyRevenue, getTopProducts, getSalesForPeriod, getOrderStatus, updateOrderStatus, syncOrders } from '../../utils/salesStorage';
 import { formatKSh } from '../../utils/currency';
@@ -196,6 +199,8 @@ function Dashboard() {
   const [images, setImages] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [existingImages, setExistingImages] = useState<string[]>([]);
+  const [colorFiles, setColorFiles] = useState<Record<string, File[]>>({});
+  const [existingColorImages, setExistingColorImages] = useState<Product['colorImages']>();
   const [message, setMessage] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'add' | 'sales' | 'orders' | 'subscribers' | 'messages' | 'reviews'>('overview');
@@ -338,36 +343,6 @@ function Dashboard() {
     setPreviews(files.map((f) => URL.createObjectURL(f)));
   };
 
-  const MAX_DIM = 800;
-  const JPEG_QUALITY = 0.7;
-
-  const compressImage = (file: File): Promise<string> =>
-    new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const img = new Image();
-        img.onload = () => {
-          let { width, height } = img;
-          if (width > MAX_DIM || height > MAX_DIM) {
-            const ratio = Math.min(MAX_DIM / width, MAX_DIM / height);
-            width = Math.round(width * ratio);
-            height = Math.round(height * ratio);
-          }
-          const canvas = document.createElement('canvas');
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          if (!ctx) { reject(new Error('Canvas context unavailable')); return; }
-          ctx.drawImage(img, 0, 0, width, height);
-          resolve(canvas.toDataURL('image/jpeg', JPEG_QUALITY));
-        };
-        img.onerror = reject;
-        img.src = reader.result as string;
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name || !form.price) {
@@ -392,23 +367,40 @@ function Dashboard() {
       stock: form.stock ? Number(form.stock) : undefined,
     };
 
+    // Colour photos: keep what exists for colours still listed, replace where new files were picked.
+    const colorImages: Record<string, string[]> = {};
+    for (const color of productData.colors) {
+      const picked = colorFiles[color];
+      const photos = picked?.length ? await Promise.all(picked.map(compressImage)) : existingColorImages?.[color];
+      if (photos?.length) colorImages[color] = photos;
+    }
+    if (Object.keys(colorImages).length > 0) productData.colorImages = colorImages;
+
     if (editingId) {
       if (images.length > 0) {
-        const imageUrls = await Promise.all(images.map(compressImage));
-        productData.images = imageUrls;
+        productData.images = await Promise.all(images.map(compressImage));
       } else {
         const existing = adminProducts.find((p) => p.id === editingId);
         productData.images = existing?.images ?? [];
       }
-      updateAdminProduct(editingId, productData);
-      setMessage('Product updated successfully!');
     } else {
-      if (images.length === 0) {
+      if (images.length === 0 && Object.keys(colorImages).length === 0) {
         setMessage('Please upload at least one image.');
         return;
       }
-      const imageUrls = await Promise.all(images.map(compressImage));
-      productData.images = imageUrls;
+      productData.images = images.length > 0
+        ? await Promise.all(images.map(compressImage))
+        : Object.values(colorImages)[0]; // no main photos: the first colour's photos stand in
+    }
+
+    if (!fitsInDoc([...productData.images, ...Object.values(colorImages).flat()])) {
+      setMessage('Too many / too large photos for one product - remove a few and try again.');
+      return;
+    }
+    if (editingId) {
+      updateAdminProduct(editingId, productData);
+      setMessage('Product updated successfully!');
+    } else {
       saveAdminProduct(productData);
       setMessage('Product added successfully!');
     }
@@ -418,6 +410,8 @@ function Dashboard() {
     setImages([]);
     setPreviews([]);
     setExistingImages([]);
+    setColorFiles({});
+    setExistingColorImages(undefined);
     setEditingId(null);
   };
 
@@ -438,6 +432,8 @@ function Dashboard() {
     });
     setEditingId(product.id);
     setExistingImages(product.images);
+    setColorFiles({});
+    setExistingColorImages(product.colorImages);
     setPreviews([]);
     setActiveTab('add');
     setMessage('');
@@ -925,6 +921,10 @@ function Dashboard() {
                 ))}
               </div>
             )}
+            <ProductEditor
+              products={allProducts.filter((p) => !adminOnly.some((a) => a.id === p.id))}
+              onSaved={() => setSalesRefresh((n) => n + 1)}
+            />
           </div>
         )}
 
@@ -1696,6 +1696,13 @@ function Dashboard() {
                 </div>
               )}
             </div>
+
+            <ColorPhotos
+              colors={form.colors.split(',').map((c) => c.trim()).filter(Boolean)}
+              existing={existingColorImages}
+              files={colorFiles}
+              onPick={(color, picked) => setColorFiles((prev) => ({ ...prev, [color]: picked }))}
+            />
 
             <label className="admin__checkbox">
               <input

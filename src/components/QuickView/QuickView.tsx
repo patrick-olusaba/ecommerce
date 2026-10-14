@@ -4,7 +4,7 @@ import type { Product } from '../../types';
 import { useCart } from '../../context/CartContext';
 import { useToast } from '../../context/ToastContext';
 import { formatKSh } from '../../utils/currency';
-import { getProductBadge } from '../../data/products';
+import { getProductBadge, imagesForColor } from '../../data/products';
 import './QuickView.css';
 
 interface Props {
@@ -18,6 +18,7 @@ export default function QuickView({ product, onClose }: Props) {
   const [selectedSize, setSelectedSize] = useState(product.sizes[0] ?? '');
   const [selectedColor, setSelectedColor] = useState(product.colors[0] ?? '');
   const [activeImage, setActiveImage] = useState(0);
+  const gallery = imagesForColor(product, selectedColor);
   const [added, setAdded] = useState(false);
   const badge = useMemo(() => getProductBadge(product), [product]);
 
@@ -51,7 +52,7 @@ export default function QuickView({ product, onClose }: Props) {
           {/* Images */}
           <div className="qv-gallery">
             <div className="qv-gallery__main">
-              <img src={product.images[activeImage]} alt={product.name} />
+              <img src={gallery[activeImage] ?? gallery[0]} alt={product.name} />
               {badge && (
                 <span className={`qv-gallery__badge qv-gallery__badge--${badge.type}`}>
                   {badge.label}
@@ -59,7 +60,7 @@ export default function QuickView({ product, onClose }: Props) {
               )}
             </div>
             <div className="qv-gallery__thumbs">
-              {product.images.map((img, i) => (
+              {gallery.map((img, i) => (
                 <button
                   key={i}
                   className={`qv-gallery__thumb ${i === activeImage ? 'qv-gallery__thumb--active' : ''}`}
@@ -98,7 +99,7 @@ export default function QuickView({ product, onClose }: Props) {
                   <button
                     key={color}
                     className={`qv-swatch ${color === selectedColor ? 'qv-swatch--active' : ''}`}
-                    onClick={() => setSelectedColor(color)}
+                    onClick={() => { setSelectedColor(color); setActiveImage(0); }}
                   >
                     {color}
                   </button>

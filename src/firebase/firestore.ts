@@ -1,4 +1,4 @@
-import { collection, doc, addDoc, setDoc, updateDoc, getDoc, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
+import { collection, doc, addDoc, setDoc, updateDoc, deleteDoc, getDoc, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
 import { db, auth } from './config';
 
 // Firestore rejects undefined values outright, nested ones included — drop them
@@ -43,6 +43,16 @@ export async function updateDocument(collectionName: string, id: string, data: o
   if (!db) return false;
   try {
     await updateDoc(doc(db!, collectionName, id), clean(data));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function deleteDocument(collectionName: string, id: string) {
+  if (!db) return false;
+  try {
+    await deleteDoc(doc(db!, collectionName, id));
     return true;
   } catch {
     return false;

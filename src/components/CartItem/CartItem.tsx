@@ -3,6 +3,7 @@ import type { CartItem as CartItemType } from '../../types';
 import { useCart } from '../../context/CartContext';
 import { useToast } from '../../context/ToastContext';
 import { formatKSh } from '../../utils/currency';
+import { imagesForColor } from '../../data/products';
 import './CartItem.css';
 
 interface Props {
@@ -32,11 +33,11 @@ export default function CartItemRow({ item }: Props) {
     <tr className="cart-item">
       <td className="cart-item__product">
         <div className="cart-item__img-wrap">
-          <img src={product.images[0]} alt={product.name} className="cart-item__image" />
+          <img src={imagesForColor(product, item.color)[0]} alt={product.name} className="cart-item__image" />
         </div>
         <div>
           <Link to={`/product/${product.id}`} className="cart-item__name">
-            {product.name}
+            {product.name}can
           </Link>
           <p className="cart-item__category">{product.category}</p>
           <p className="cart-item__price">{formatKSh(product.price)}</p>

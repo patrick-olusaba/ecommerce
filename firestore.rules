@@ -74,6 +74,18 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Catalog additions/edits made in /admin. Anyone can read; only admins write.
+    match /products/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Admin price changes for the built-in catalog (doc id = product id).
+    match /product_overrides/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     match /reviews/{id} {
       allow create: if validReview(request.resource.data);
       allow read: if true;

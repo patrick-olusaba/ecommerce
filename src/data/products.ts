@@ -1,5 +1,6 @@
 import type { Product } from '../types';
 import { getAdminProducts } from '../utils/adminStorage';
+import { getProductOverrides } from '../utils/productOverrides';
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -1538,10 +1539,34 @@ const staticProducts: Product[] = [
 
 const mixedProducts: Product[] = shuffle(staticProducts);
 
+/** Gallery for the chosen colour; falls back to the product's default images. */
+export function imagesForColor(product: Product, color: string): string[] {
+  const own = product.colorImages?.[color];
+  return own && own.length > 0 ? own : product.images;
+}
+
 export function getAllProducts(): Product[] {
   // Start with the pre-shuffled built-in products so categories are mixed,
   // then append admin products (which are added after the fact)
-  return [...mixedProducts, ...getAdminProducts()];
+  const overrides = getProductOverrides();
+  const builtIn = mixedProducts.map((p) => {
+    const o = overrides[p.id];
+    if (!o) return p;
+    return {
+      ...p,
+      price: o.price,
+      originalPrice: o.originalPrice ?? undefined,
+      ...(o.name && { name: o.name }),
+      ...(o.description && { description: o.description }),
+      ...(o.stock !== undefined && { stock: o.stock ?? undefined }),
+      ...(o.images?.length && { images: o.images }),
+      ...(o.category && { category: o.category }),
+      ...(o.sizes?.length && { sizes: o.sizes }),
+      ...(o.colors?.length && { colors: o.colors }),
+      ...(o.colorImages && { colorImages: o.colorImages }),
+    };
+  });
+  return [...builtIn, ...getAdminProducts()];
 }
 
 export function getProductBadge(product: Product): { label: string; type: string } | null {

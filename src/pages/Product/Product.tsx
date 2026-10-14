@@ -1,6 +1,6 @@
 import { useParams, Link } from 'react-router-dom';
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
-import { getProductById, getRelatedProducts, getProductBadge } from '../../data/products';
+import { getProductById, getRelatedProducts, getProductBadge, imagesForColor } from '../../data/products';
 import { useCart } from '../../context/CartContext';
 import { useWishlist } from '../../context/WishlistContext';
 import { useAuth } from '../../context/AuthContext';
@@ -28,6 +28,7 @@ export default function Product() {
   const [selectedSize, setSelectedSize] = useState(product?.sizes[0] ?? '');
   const [selectedColor, setSelectedColor] = useState(product?.colors[0] ?? '');
   const [activeImage, setActiveImage] = useState(0);
+  const gallery = product ? imagesForColor(product, selectedColor) : [];
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
   const [zoomOrigin, setZoomOrigin] = useState('center center');
@@ -138,7 +139,7 @@ export default function Product() {
             onMouseLeave={() => setZooming(false)}
           >
             <img
-              src={product.images[activeImage]}
+              src={gallery[activeImage] ?? gallery[0]}
               alt={product.name}
               className={`product-gallery__image ${zooming ? 'product-gallery__image--zoomed' : ''}`}
               style={zooming ? { transformOrigin: zoomOrigin } : undefined}
@@ -150,7 +151,7 @@ export default function Product() {
             )}
           </div>
           <div className="product-gallery__thumbs">
-            {product.images.map((img, i) => (
+            {gallery.map((img, i) => (
               <button
                 key={i}
                 className={`product-gallery__thumb ${i === activeImage ? 'product-gallery__thumb--active' : ''}`}
@@ -191,7 +192,7 @@ export default function Product() {
                 <button
                   key={color}
                   className={`swatch ${color === selectedColor ? 'swatch--active' : ''}`}
-                  onClick={() => setSelectedColor(color)}
+                  onClick={() => { setSelectedColor(color); setActiveImage(0); }}
                 >
                   {color}
                 </button>

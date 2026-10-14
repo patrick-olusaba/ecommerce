@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
 import { useToast } from '../../context/ToastContext';
 import { useAuth } from '../../context/AuthContext';
+import { imagesForColor } from '../../data/products';
 import { recordSale } from '../../utils/salesStorage';
 import useDocumentTitle from '../../hooks/useDocumentTitle';
 import { formatKSh, FREE_SHIPPING_THRESHOLD, SHIPPING_COST } from '../../utils/currency';
@@ -368,7 +369,7 @@ export default function Checkout() {
                 {items.map((item) => (
                   <div key={`${item.product.id}-${item.size}-${item.color}`} className="checkout-summary__item">
                     <div className="checkout-summary__item-img-wrap">
-                      <img src={item.product.images[0]} alt={item.product.name} />
+                      <img src={imagesForColor(item.product, item.color)[0]} alt={item.product.name} />
                       <span className="checkout-summary__item-qty">{item.quantity}</span>
                     </div>
                     <div className="checkout-summary__item-info">
