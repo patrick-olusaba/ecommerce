@@ -109,27 +109,26 @@ export default function Checkout() {
     }));
     const buyerEmail = email.trim();
 
-    // Both writes are best-effort: the order is already in this browser either way.
-    const [, mailed] = await Promise.all([
-      recordSale({
-        id: orderNumber,
-        date: now.toISOString(),
-        items: saleItems,
-        total: grandTotal,
-        itemCount: items.reduce((sum, i) => sum + i.quantity, 0),
-        uid: user?.uid,
-        email: buyerEmail || undefined,
-        phone: paymentMethod === 'mpesa' ? mpesaPhone.trim() : field('phone'),
-        paymentMethod,
-        customer: {
-          name: [field('firstName'), field('lastName')].filter(Boolean).join(' ') || undefined,
-          address: field('address'),
-          city: field('city'),
-          postalCode: field('postalCode'),
-        },
-      }),
-      sendOrderEmail(buyerEmail, orderNumber, saleItems, grandTotal, shipping),
-    ]);
+    // Best-effort: the order is already in this browser either way. The email goes out only
+    // after the order is saved, because the server checks the address against the stored order.
+    const saved = await recordSale({
+      id: orderNumber,
+      date: now.toISOString(),
+      items: saleItems,
+      total: grandTotal,
+      itemCount: items.reduce((sum, i) => sum + i.quantity, 0),
+      uid: user?.uid,
+      email: buyerEmail || undefined,
+      phone: paymentMethod === 'mpesa' ? mpesaPhone.trim() : field('phone'),
+      paymentMethod,
+      customer: {
+        name: [field('firstName'), field('lastName')].filter(Boolean).join(' ') || undefined,
+        address: field('address'),
+        city: field('city'),
+        postalCode: field('postalCode'),
+      },
+    });
+    const mailed = saved && await sendOrderEmail(buyerEmail, orderNumber, saleItems, grandTotal, shipping);
 
     setEmailSent(mailed);
     setPlacedItems([...items]);

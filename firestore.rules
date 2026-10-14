@@ -28,7 +28,7 @@ service cloud.firestore {
 
     function validOrder(d, id) {
       return d.keys().hasOnly(['id', 'date', 'items', 'total', 'itemCount', 'uid', 'email', 'phone', 'paymentMethod', 'customer', 'createdAt'])
-        && d.id == id && id.matches('^AVT-[0-9]{6}(-[A-Z0-9]{6})?$')
+        && d.id == id && id.matches('^AVT-[0-9]{6}-[A-Z0-9]{6}$')
         && str(d, 'date', 40) && str(d, 'createdAt', 40)
         && d.items is list && d.items.size() >= 1 && d.items.size() <= 50
         && d.total is number && d.total > 0 && d.total < 10000000

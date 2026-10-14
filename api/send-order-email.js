@@ -2,8 +2,11 @@
 // Set RESEND_API_KEY (and ORDER_EMAIL_FROM, once your domain is verified) in the
 // Vercel project env. Without a key it reports sent:false and the UI stays honest.
 //
-// ponytail: no order-authenticity check — anyone who can POST here can mail a
-// receipt to any address. Add a Firestore lookup of `orderId` if that gets abused.
+// The recipient must match the email stored on the order in Firestore, so this can only
+// mail a buyer their own receipt, never an arbitrary address. The order is therefore
+// saved before this is called (see Checkout).
+//
+// ponytail: no dedupe — someone holding an order id can re-send that buyer's receipt.
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i;
 const ORDER_ID_RE = /^AVT-\d{6}(-[A-Z0-9]{6})?$/;
@@ -60,6 +63,12 @@ export function buildOrderEmail(payload) {
   return { to, subject: `Your Avytrendy order ${orderId}`, html };
 }
 
+/** True when the Firestore REST order document holds exactly this email (case-insensitive). */
+export function orderHasEmail(doc, to) {
+  const stored = doc?.fields?.email?.stringValue;
+  return typeof stored === 'string' && stored.trim().toLowerCase() === to.trim().toLowerCase();
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ sent: false, error: 'Method not allowed' });
 
@@ -71,9 +80,15 @@ export default async function handler(req, res) {
   }
 
   const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) return res.status(200).json({ sent: false, error: 'Email not configured' });
+  const projectId = process.env.VITE_FIREBASE_PROJECT_ID;
+  if (!apiKey || !projectId) return res.status(200).json({ sent: false, error: 'Email not configured' });
 
   try {
+    const orderId = req.body.orderId;
+    const docResp = await fetch(`https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/orders/${orderId}`);
+    if (!docResp.ok || !orderHasEmail(await docResp.json(), email.to)) {
+      return res.status(200).json({ sent: false, error: 'Order not found for this email' });
+    }
     const resp = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },

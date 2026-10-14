@@ -1,7 +1,7 @@
 // Run: node --test tests/order-email.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildOrderEmail } from '../api/send-order-email.js';
+import { buildOrderEmail, orderHasEmail } from '../api/send-order-email.js';
 
 const valid = {
   to: 'buyer@example.com',
@@ -44,4 +44,15 @@ test('rejects bad input instead of mailing it', () => {
   ]) {
     assert.throws(() => buildOrderEmail(bad));
   }
+});
+
+test('only the email stored on the order matches (case-insensitive)', () => {
+  const doc = { fields: { email: { stringValue: 'Amy@Shop.co' } } };
+  assert.equal(orderHasEmail(doc, 'amy@shop.co'), true);
+  assert.equal(orderHasEmail(doc, 'victim@x.co'), false);
+});
+
+test('an order with no email, or no document, matches nothing', () => {
+  assert.equal(orderHasEmail({ fields: {} }, 'amy@shop.co'), false);
+  assert.equal(orderHasEmail(undefined, 'amy@shop.co'), false);
 });
