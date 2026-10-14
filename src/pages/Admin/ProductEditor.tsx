@@ -132,19 +132,26 @@ function ProductRow({ product, overridden, onSaved }: { product: Product; overri
 /** Edit built-in products (price, name, description, stock, images). `products` already has overrides applied. */
 export default function ProductEditor({ products, onSaved }: { products: Product[]; onSaved: () => void }) {
   const [filter, setFilter] = useState('');
+  const [category, setCategory] = useState('');
   const overrides = getProductOverrides();
   const q = filter.trim().toLowerCase();
-  const shown = products.filter((p) => !q || p.name.toLowerCase().includes(q) || p.category.includes(q));
+  const shown = products.filter((p) => (!category || p.category === category) && (!q || p.name.toLowerCase().includes(q)));
 
   return (
     <div className="admin__list" style={{ marginTop: 20 }}>
       <h2 className="admin__section-title">Edit built-in products ({products.length})</h2>
-      <input
-        className="admin__input"
-        placeholder="Search by name or category"
-        value={filter}
-        onChange={(e) => setFilter(e.target.value)}
-      />
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <input
+          className="admin__input"
+          placeholder="Search by name"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+        />
+        <select className="admin__input admin__select" value={category} onChange={(e) => setCategory(e.target.value)}>
+          <option value="">All categories</option>
+          {CATEGORIES.map((c) => <option key={c} value={c}>{categoryLabel[c] ?? c}</option>)}
+        </select>
+      </div>
       <div className="price-list">
         {shown.map((p) => (
           // key includes the saved values so a saved/reset row re-reads its inputs
