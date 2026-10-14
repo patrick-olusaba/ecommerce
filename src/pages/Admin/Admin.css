@@ -1684,8 +1684,9 @@
      stretched the whole page past the screen. minmax(0, 1fr) lets it shrink. */
   .dashboard,
   .dashboard--sidebar-collapsed { grid-template-columns: minmax(0, 1fr); }
-  .dashboard__navbar { min-width: 0; width: 100%; }
-  .dashboard__navbar-inner { min-width: 0; }
+  .dashboard__navbar,
+  .dashboard--sidebar-collapsed .dashboard__navbar { min-width: 0; width: 100%; height: auto; }
+  .dashboard__navbar-inner { min-width: 0; height: auto; align-content: flex-start; }
   .dashboard__quick-stats { gap: 10px 16px; padding: 12px 14px; }
 
   /* Desktop-only sidebar affordances; a stuck "collapsed" state must not shrink the mobile bar. */
@@ -1711,7 +1712,9 @@
   .dashboard__logout { order: 2; margin-left: auto; border-top: none; flex-shrink: 0; }
   .dashboard__nav {
     order: 3;
-    flex: 1 0 100%;
+    flex: none;
+    width: 100%;
+    height: auto;
     overflow-x: auto;
     padding-bottom: 4px;
     scrollbar-width: none;
