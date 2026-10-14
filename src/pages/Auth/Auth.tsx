@@ -36,18 +36,19 @@ export default function Auth() {
         await login(email.trim(), password);
       }
       navigate('/');
-    } catch (err: any) {
-      const msg = err?.code === 'auth/email-already-in-use'
+    } catch (err) {
+      const code = (err as { code?: string })?.code;
+      const msg = code === 'auth/email-already-in-use'
         ? 'An account with this email already exists.'
-        : err?.code === 'auth/invalid-credential' || err?.code === 'auth/user-not-found'
+        : code === 'auth/invalid-credential' || code === 'auth/user-not-found'
         ? 'Invalid email or password.'
-        : err?.code === 'auth/weak-password'
+        : code === 'auth/weak-password'
         ? 'Password must be at least 6 characters.'
-        : err?.code === 'auth/invalid-email'
+        : code === 'auth/invalid-email'
         ? 'Please enter a valid email address.'
-        : err?.code === 'auth/operation-not-allowed'
+        : code === 'auth/operation-not-allowed'
         ? 'Email/Password sign-in is not enabled. Go to Firebase Console → Authentication → Sign-in method and enable it.'
-        : err?.message || 'Something went wrong. Please try again.';
+        : (err as Error)?.message || 'Something went wrong. Please try again.';
       setError(msg);
     } finally {
       setSubmitting(false);
@@ -63,16 +64,17 @@ export default function Auth() {
         navigate('/');
       }
       // If result is null, user closed the popup — stay on page, no error
-    } catch (err: any) {
-      const msg = err?.code === 'auth/popup-blocked'
+    } catch (err) {
+      const code = (err as { code?: string })?.code;
+      const msg = code === 'auth/popup-blocked'
         ? 'Pop-up was blocked. Please allow pop-ups for this site.'
-        : err?.code === 'auth/unauthorized-domain'
+        : code === 'auth/unauthorized-domain'
         ? 'This domain is not authorized for Google sign-in. Check Firebase console.'
-        : err?.code === 'auth/operation-not-allowed'
+        : code === 'auth/operation-not-allowed'
         ? 'Google sign-in is not enabled in Firebase. Go to Authentication → Sign-in method and enable Google.'
-        : err?.code === 'auth/account-exists-with-different-credential'
+        : code === 'auth/account-exists-with-different-credential'
         ? 'An account already exists with this email using a different sign-in method.'
-        : err?.message || 'Google sign-in failed. Please try again.';
+        : (err as Error)?.message || 'Google sign-in failed. Please try again.';
       setError(msg);
     } finally {
       setGoogleSubmitting(false);

@@ -1,9 +1,9 @@
-import { useState, useRef, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
 import { useToast } from '../../context/ToastContext';
 import { useAuth } from '../../context/AuthContext';
-import { imagesForColor } from '../../data/products';
+import { imagesForColor, getProductById } from '../../data/products';
 import { recordSale } from '../../utils/salesStorage';
 import useDocumentTitle from '../../hooks/useDocumentTitle';
 import { formatKSh, FREE_SHIPPING_THRESHOLD, SHIPPING_COST } from '../../utils/currency';
@@ -66,11 +66,11 @@ export default function Checkout() {
   const [firstName, setFirstName] = useState('');
   const [placedItems, setPlacedItems] = useState<typeof items>([]);
   const [placedGrandTotal, setPlacedGrandTotal] = useState(0);
-  const orderNumber = useRef(newOrderNumber());
+  const [orderNumber] = useState(newOrderNumber);
 
   const shipping = total >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_COST;
   const grandTotal = total + shipping;
-  const orderDate = useRef(new Date());
+  const [orderDate, setOrderDate] = useState(() => new Date());
 
   const KENYA_PHONE_RE = /^(?:\+?254|0)(7\d{8})$/;
 
@@ -86,11 +86,21 @@ export default function Checkout() {
       }
     }
 
+    const short = items.find((i) => {
+      const stock = getProductById(i.product.id)?.stock;
+      return stock != null && i.quantity > stock;
+    });
+    if (short) {
+      addToast(`Only ${getProductById(short.product.id)?.stock} of "${short.product.name}" left. Lower the quantity in your cart.`, 'error');
+      return;
+    }
+
     const form = new FormData(e.currentTarget);
     const field = (name: string) => (form.get(name) as string | null)?.trim() || undefined;
 
     setSubmitting(true);
-    orderDate.current = new Date();
+    const now = new Date();
+    setOrderDate(now);
     const saleItems = items.map((item) => ({
       productId: item.product.id,
       name: item.product.name,
@@ -102,8 +112,8 @@ export default function Checkout() {
     // Both writes are best-effort: the order is already in this browser either way.
     const [, mailed] = await Promise.all([
       recordSale({
-        id: orderNumber.current,
-        date: orderDate.current.toISOString(),
+        id: orderNumber,
+        date: now.toISOString(),
         items: saleItems,
         total: grandTotal,
         itemCount: items.reduce((sum, i) => sum + i.quantity, 0),
@@ -118,7 +128,7 @@ export default function Checkout() {
           postalCode: field('postalCode'),
         },
       }),
-      sendOrderEmail(buyerEmail, orderNumber.current, saleItems, grandTotal, shipping),
+      sendOrderEmail(buyerEmail, orderNumber, saleItems, grandTotal, shipping),
     ]);
 
     setEmailSent(mailed);
@@ -132,7 +142,7 @@ export default function Checkout() {
   const receiptHTML = useMemo(() => {
     const placedTotal = placedItems.reduce((s, i) => s + i.product.price * i.quantity, 0);
     return `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>Receipt ${orderNumber.current}</title>
+<html><head><meta charset="utf-8"><title>Receipt ${orderNumber}</title>
 <style>
   body { font-family: -apple-system, sans-serif; max-width: 480px; margin: 40px auto; padding: 0 20px; color: #1a1a2e; }
   h1 { font-size: 1.4rem; margin: 0 0 4px; }
@@ -145,7 +155,7 @@ export default function Checkout() {
   .footer { margin-top: 24px; font-size: 0.8rem; color: #94a3b8; text-align: center; }
 </style></head><body>
   <h1>Avytrendy</h1>
-  <p class="id">Order #${orderNumber.current} &middot; ${orderDate.current.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+  <p class="id">Order #${orderNumber} &middot; ${orderDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
   ${email ? `<p style="color:#64748b;font-size:0.9rem;">Email: ${email}</p>` : ''}
   <table>
     <thead><tr><th>Item</th><th>Qty</th><th style="text-align:right">Price</th></tr></thead>
@@ -158,14 +168,14 @@ export default function Checkout() {
   </table>
   <p class="footer">Thank you for shopping with Avytrendy!</p>
 </body></html>`;
-  }, [placedItems, placedGrandTotal, email]);
+  }, [placedItems, placedGrandTotal, email, orderDate, orderNumber]);
 
   const handleDownloadReceipt = () => {
     const blob = new Blob([receiptHTML], { type: 'text/html;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `avytrendy-receipt-${orderNumber.current}.html`;
+    a.download = `avytrendy-receipt-${orderNumber}.html`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -207,7 +217,7 @@ export default function Checkout() {
               </svg>
             </div>
             <h1>Order Confirmed!</h1>
-            <p className="checkout-success__number">Order #{orderNumber.current}</p>
+            <p className="checkout-success__number">Order #{orderNumber}</p>
             {email && (
               <p className="checkout-success__email">
                 {emailSent ? (

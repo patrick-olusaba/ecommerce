@@ -20,6 +20,8 @@ export default function TrackOrder() {
   const [refreshKey, setRefreshKey] = useState(0);
   const autoRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
 
+  // refreshKey is a manual trigger: getSales() reads storage, not state
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const allSales = useMemo(() => getSales(), [refreshKey]);
   const demoIds = useMemo(() => allSales.slice(0, 3).map((s) => s.id), [allSales]);
 

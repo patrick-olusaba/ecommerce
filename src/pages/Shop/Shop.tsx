@@ -109,7 +109,7 @@ export default function Shop() {
   const toggleSize = (size: string) => {
     setSelectedSizes((prev) => {
       const next = new Set(prev);
-      next.has(size) ? next.delete(size) : next.add(size);
+      if (!next.delete(size)) next.add(size);
       return next;
     });
   };
@@ -117,7 +117,7 @@ export default function Shop() {
   const toggleColor = (color: string) => {
     setSelectedColors((prev) => {
       const next = new Set(prev);
-      next.has(color) ? next.delete(color) : next.add(color);
+      if (!next.delete(color)) next.add(color);
       return next;
     });
   };

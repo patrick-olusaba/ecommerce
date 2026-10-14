@@ -13,22 +13,37 @@ import { formatKSh, FREE_SHIPPING_THRESHOLD } from '../../utils/currency';
 import { getReviews, getReviewStats, addReview } from '../../utils/reviewStorage';
 import { addDocument } from '../../firebase/firestore';
 import type { Review } from '../../utils/reviewStorage';
+import type { Product as ProductType } from '../../types';
 import './Product.css';
 
 export default function Product() {
   const { id } = useParams();
   const product = id ? getProductById(Number(id)) : undefined;
   useDocumentTitle(product?.name ?? 'Product');
+
+  if (!product) {
+    return (
+      <div className="not-found">
+        <h2>Product not found</h2>
+        <Link to="/shop">Back to Shop</Link>
+      </div>
+    );
+  }
+  // key resets size/colour/gallery state when navigating between products
+  return <ProductDetail key={product.id} product={product} />;
+}
+
+function ProductDetail({ product }: { product: ProductType }) {
   const { user } = useAuth();
   const { addItem } = useCart();
   const { isInWishlist, toggleWishlist } = useWishlist();
   const { addToast } = useToast();
   const { addToRecentlyViewed } = useRecentlyViewed();
 
-  const [selectedSize, setSelectedSize] = useState(product?.sizes[0] ?? '');
-  const [selectedColor, setSelectedColor] = useState(product?.colors[0] ?? '');
+  const [selectedSize, setSelectedSize] = useState(product.sizes[0] ?? '');
+  const [selectedColor, setSelectedColor] = useState(product.colors[0] ?? '');
   const [activeImage, setActiveImage] = useState(0);
-  const gallery = product ? imagesForColor(product, selectedColor) : [];
+  const gallery = imagesForColor(product, selectedColor);
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
   const [zoomOrigin, setZoomOrigin] = useState('center center');
@@ -47,15 +62,6 @@ export default function Product() {
     setZoomOrigin(`${x}% ${y}%`);
   };
 
-  if (!product) {
-    return (
-      <div className="not-found">
-        <h2>Product not found</h2>
-        <Link to="/shop">Back to Shop</Link>
-      </div>
-    );
-  }
-
   const [reviews, setReviews] = useState<Review[]>(() => getReviews(product.id));
   const [reviewForm, setReviewForm] = useState({ name: '', rating: 5, comment: '' });
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
@@ -73,6 +79,8 @@ export default function Product() {
       avgRating: Math.round(((totalBuiltInRating + totalUserRating) / combinedTotal) * 10) / 10,
       totalReviews: combinedTotal,
     };
+    // reviewSubmitted re-reads storage after a new review
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product.id, product.rating, product.reviews, reviewSubmitted]);
 
   const badge = useMemo(() => getProductBadge(product), [product]);

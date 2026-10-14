@@ -257,6 +257,7 @@ function Dashboard() {
 
   const prevWeekSales = getSalesForPeriod(14).filter((s) => {
     const d = new Date(s.date);
+    // eslint-disable-next-line react-hooks/purity
     const daysAgo = (Date.now() - d.getTime()) / (1000 * 60 * 60 * 24);
     return daysAgo > 7;
   });

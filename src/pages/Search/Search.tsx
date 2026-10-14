@@ -15,6 +15,8 @@ export default function Search() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // keep the box in sync with back/forward navigation
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setInputValue(query);
     const t = setTimeout(() => setLoading(false), 400);
     return () => clearTimeout(t);

@@ -1,4 +1,7 @@
 import { setDocument, updateDocument, getDocument, getDocuments } from '../firebase/firestore';
+import { getProductById } from '../data/products';
+import { getAdminProducts, updateAdminProduct } from './adminStorage';
+import { getProductOverrides, setProductOverride } from './productOverrides';
 
 const STORAGE_KEY = 'avytrendy_sales';
 
@@ -23,6 +26,7 @@ export interface Sale {
   total: number;
   itemCount: number;
   status?: number;
+  stockDeducted?: boolean;
   uid?: string;
   email?: string;
   phone?: string;
@@ -30,16 +34,35 @@ export interface Sale {
   customer?: Customer;
 }
 
+// Stock is taken off when the admin first confirms an order (status 2+), not at checkout:
+// shoppers can't write products under the Firestore rules. Untracked products (no stock) are skipped.
+// ponytail: checkout can still oversell between confirmations; move to a server function if that bites.
+function deductStock(items: SaleItem[]): void {
+  const qty = new Map<number, number>();
+  for (const i of items) qty.set(i.productId, (qty.get(i.productId) ?? 0) + i.quantity);
+  const adminIds = new Set(getAdminProducts().map((p) => p.id));
+  for (const [id, n] of qty) {
+    const product = getProductById(id);
+    if (product?.stock == null) continue;
+    const stock = Math.max(0, product.stock - n);
+    if (adminIds.has(id)) updateAdminProduct(id, { stock });
+    else void setProductOverride(id, { ...getProductOverrides()[id], price: product.price, originalPrice: product.originalPrice ?? null, stock });
+  }
+}
+
 export function updateOrderStatus(orderId: string, status: number): void {
   const sales = getAllSales();
   const order = sales.find((s) => s.id === orderId);
+  const deduct = !!order && status >= 2 && !order.stockDeducted;
   if (order) {
     order.status = status;
+    if (deduct) order.stockDeducted = true;
     saveAllSales(sales);
   }
+  if (deduct) deductStock(order.items);
   // Mail the buyer once Firestore has the new status (the function reads it from there).
   // Best-effort: buyers with no email, or "Order Placed", simply get nothing.
-  void updateDocument('orders', orderId, { status }).then((ok) => {
+  void updateDocument('orders', orderId, deduct ? { status, stockDeducted: true } : { status }).then((ok) => {
     if (!ok || status < 2) return;
     return fetch('/api/send-status-email', {
       method: 'POST',

@@ -23,8 +23,8 @@ export async function signInWithGoogle() {
   try {
     const result = await signInWithPopup(auth, googleProvider);
     return result.user;
-  } catch (error: any) {
-    if (error?.code !== 'auth/popup-closed-by-user') {
+  } catch (error) {
+    if ((error as { code?: string })?.code !== 'auth/popup-closed-by-user') {
       throw error;
     }
     return null;

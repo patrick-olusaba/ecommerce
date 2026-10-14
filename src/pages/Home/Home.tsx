@@ -120,7 +120,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const { addToast } = useToast();
-  const allProducts = getAllProducts();
+  const allProducts = useMemo(() => getAllProducts(), []);
   const bestSellers = [...allProducts].sort((a, b) => b.reviews - a.reviews).slice(0, 8);
   const newArrivals = useMemo(() => {
     const arrivals = allProducts.filter((p) => p.badge === 'New Arrival');

@@ -19,4 +19,9 @@ export default defineConfig([
       globals: globals.browser,
     },
   },
+  {
+    // contexts export their hook next to the provider on purpose
+    files: ['src/context/**'],
+    rules: { 'react-refresh/only-export-components': 'off' },
+  },
 ])
