@@ -85,6 +85,16 @@
   background: #FCE4E8;
 }
 
+.footer__social-link--tiktok {
+  color: #010101;
+  background: #F2F2F2;
+}
+
+.footer__social-link--tiktok:hover {
+  color: #010101;
+  background: #E6E6E6;
+}
+
 .footer__social-link--twitter {
   color: #0F1419;
   background: #F2F2F2;
