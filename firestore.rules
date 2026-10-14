@@ -18,12 +18,55 @@ service cloud.firestore {
       allow read, write: if false; // membership is granted in the console only
     }
 
+    // Optional string field: absent, or a string no longer than n.
+    function optStr(d, k, n) {
+      return !(k in d) || (d[k] is string && d[k].size() <= n);
+    }
+    function str(d, k, n) {
+      return d[k] is string && d[k].size() <= n;
+    }
+
+    function validOrder(d, id) {
+      return d.keys().hasOnly(['id', 'date', 'items', 'total', 'itemCount', 'uid', 'email', 'phone', 'paymentMethod', 'customer', 'createdAt'])
+        && d.id == id && id.matches('^AVT-[0-9]{6}(-[A-Z0-9]{6})?$')
+        && str(d, 'date', 40) && str(d, 'createdAt', 40)
+        && d.items is list && d.items.size() >= 1 && d.items.size() <= 50
+        && d.total is number && d.total > 0 && d.total < 10000000
+        && d.itemCount is int && d.itemCount >= 1 && d.itemCount <= 500
+        && (!('uid' in d) || d.uid == request.auth.uid)   // can't file an order under someone else's account
+        && optStr(d, 'email', 254) && optStr(d, 'phone', 30)
+        && (!('paymentMethod' in d) || d.paymentMethod in ['mpesa', 'cod'])
+        && (!('customer' in d) || (d.customer is map && d.customer.keys().hasOnly(['name', 'address', 'city', 'postalCode'])
+            && optStr(d.customer, 'name', 120) && optStr(d.customer, 'address', 300)
+            && optStr(d.customer, 'city', 100) && optStr(d.customer, 'postalCode', 20)));
+    }
+
+    function validReview(d) {
+      return d.keys().hasOnly(['id', 'productId', 'name', 'rating', 'comment', 'date', 'createdAt'])
+        && str(d, 'id', 40) && d.productId is int
+        && str(d, 'name', 60) && d.name.size() > 0
+        && d.rating is int && d.rating >= 1 && d.rating <= 5
+        && str(d, 'comment', 1000) && d.comment.size() > 0
+        && str(d, 'date', 40) && str(d, 'createdAt', 40);
+    }
+
+    function validMessage(d) {
+      return d.keys().hasOnly(['id', 'name', 'email', 'subject', 'message', 'date', 'createdAt'])
+        && str(d, 'id', 40) && str(d, 'name', 120) && str(d, 'email', 254)
+        && str(d, 'subject', 200) && str(d, 'message', 3000)
+        && str(d, 'date', 40) && str(d, 'createdAt', 40);
+    }
+
+    function validSubscriber(d) {
+      return d.keys().hasOnly(['email', 'createdAt'])
+        && str(d, 'email', 254) && d.email.matches('.+@.+[.].+') && str(d, 'createdAt', 40);
+    }
+
     match /orders/{orderId} {
-      allow create: if true;
-      // ponytail: a single-order read is public so guests can track without an account.
-      // The order number is the secret, and AVT-###### is guessable — tighten to
-      // `request.auth != null && resource.data.uid == request.auth.uid` if that matters
-      // more than guest tracking does.
+      allow create: if validOrder(request.resource.data, orderId);
+      // Guests track without an account: new order ids carry a random suffix
+      // (AVT-######-XXXXXX), so the id is the unguessable secret; the Track page
+      // also asks for the order's phone number.
       allow get: if true;
       // Buyers list only their own orders; the dashboard lists all of them.
       allow list: if isAdmin() || (request.auth != null && resource.data.uid == request.auth.uid);
@@ -32,18 +75,18 @@ service cloud.firestore {
     }
 
     match /reviews/{id} {
-      allow create: if true;
+      allow create: if validReview(request.resource.data);
       allow read: if true;
       allow update, delete: if isAdmin();
     }
 
     match /messages/{id} {
-      allow create: if true;
+      allow create: if validMessage(request.resource.data);
       allow read, update, delete: if isAdmin();
     }
 
     match /subscribers/{id} {
-      allow create: if true;
+      allow create: if validSubscriber(request.resource.data);
       allow read, update, delete: if isAdmin();
     }
   }

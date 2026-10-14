@@ -14,6 +14,7 @@ const STEPS = [
 export default function TrackOrder() {
   useDocumentTitle('Track Order');
   const [orderNumber, setOrderNumber] = useState('');
+  const [phone, setPhone] = useState('');
   const [tracking, setTracking] = useState<ReturnType<typeof getSales>[number] | null>(null);
   const [searched, setSearched] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -38,8 +39,11 @@ export default function TrackOrder() {
   }, [tracking, refreshTracking]);
 
   // Checks Firestore too, so an order placed on another device still tracks here.
-  const lookup = async (id: string) => {
-    setTracking(await findOrder(id));
+  const lookup = async (id: string, phoneInput = phone) => {
+    const order = await findOrder(id);
+    // Orders with a phone on file need it to match (last 9 digits, so 07.. / +254.. / 7.. all work).
+    const tail = (v?: string) => (v ?? '').replace(/\D/g, '').slice(-9);
+    setTracking(order && (!order.phone || tail(order.phone) === tail(phoneInput)) ? order : null);
     setSearched(true);
     setRefreshKey((n) => n + 1);
   };
@@ -71,7 +75,7 @@ export default function TrackOrder() {
           </div>
           <h1 className="track-order__title">Track Your Order</h1>
           <p className="track-order__subtitle">
-            Enter your AVYTRENDY order number to see real-time delivery updates.
+            Enter your AVYTRENDY order number and phone number to see real-time delivery updates.
           </p>
         </div>
 
@@ -92,6 +96,15 @@ export default function TrackOrder() {
                 value={orderNumber}
                 onChange={(e) => setOrderNumber(e.target.value)}
                 required
+              />
+            </div>
+            <div className="track-order__input-group">
+              <input
+                type="tel"
+                className="track-order__input"
+                placeholder="Phone number used on the order"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
               />
             </div>
             <button type="submit" className="track-order__btn">
@@ -122,7 +135,7 @@ export default function TrackOrder() {
               <line x1="12" y1="16" x2="12.01" y2="16"/>
             </svg>
             <h3>Order Not Found</h3>
-            <p>We couldn't find an order with that number. Double-check and try again, or try one of the demo orders above.</p>
+            <p>We couldn't find an order matching that number and phone. Double-check both and try again.</p>
           </div>
         )}
 

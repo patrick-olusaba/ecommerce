@@ -43,6 +43,12 @@ async function sendOrderEmail(
   }
 }
 
+// AVT-###### for humans, plus a random suffix so the id can't be enumerated (orders are publicly gettable by id).
+function newOrderNumber(): string {
+  const [n, tail] = crypto.getRandomValues(new Uint32Array(2));
+  return `AVT-${100000 + (n % 900000)}-${tail.toString(36).toUpperCase().slice(0, 6).padStart(6, '0')}`;
+}
+
 export default function Checkout() {
   useDocumentTitle('Checkout');
   const { items, total, clearCart, removeItem } = useCart();
@@ -59,7 +65,7 @@ export default function Checkout() {
   const [firstName, setFirstName] = useState('');
   const [placedItems, setPlacedItems] = useState<typeof items>([]);
   const [placedGrandTotal, setPlacedGrandTotal] = useState(0);
-  const orderNumber = useRef(`AVT-${Math.floor(Math.random() * 900000) + 100000}`);
+  const orderNumber = useRef(newOrderNumber());
 
   const shipping = total >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_COST;
   const grandTotal = total + shipping;

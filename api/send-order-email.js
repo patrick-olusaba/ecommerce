@@ -6,7 +6,7 @@
 // receipt to any address. Add a Firestore lookup of `orderId` if that gets abused.
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i;
-const ORDER_ID_RE = /^AVT-\d{6}$/;
+const ORDER_ID_RE = /^AVT-\d{6}(-[A-Z0-9]{6})?$/;
 const MAX_ITEMS = 50;
 
 function escapeHtml(value) {

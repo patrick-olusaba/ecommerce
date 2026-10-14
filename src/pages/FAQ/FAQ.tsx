@@ -19,7 +19,7 @@ const FAQS = [
       },
       {
         q: 'How can I track my order?',
-        a: 'Visit our Track Order page and enter your order number (e.g., AVT-100101). You\'ll see real-time updates on your delivery status.',
+        a: 'Visit our Track Order page and enter your order number (e.g., AVT-100101) and the phone number used on the order. You\'ll see real-time updates on your delivery status.',
       },
     ],
   },
