@@ -1677,3 +1677,78 @@
   font-size: 0.76rem;
   overflow-wrap: anywhere;
 }
+
+/* ===== Mobile polish (kept last so it wins over the desktop rules above) ===== */
+@media (max-width: 900px) {
+  /* A plain 1fr track grows to its content's min-width, so the scrolling tab row
+     stretched the whole page past the screen. minmax(0, 1fr) lets it shrink. */
+  .dashboard,
+  .dashboard--sidebar-collapsed { grid-template-columns: minmax(0, 1fr); }
+  .dashboard__navbar { min-width: 0; width: 100%; }
+  .dashboard__navbar-inner { min-width: 0; }
+  .dashboard__quick-stats { gap: 10px 16px; padding: 12px 14px; }
+
+  /* Desktop-only sidebar affordances; a stuck "collapsed" state must not shrink the mobile bar. */
+  .dashboard__collapse-btn,
+  .dashboard__nav-section { display: none; }
+
+  .dashboard--sidebar-collapsed .dashboard__navbar { width: auto; }
+  .dashboard--sidebar-collapsed .dashboard__navbar-inner { padding: 8px 12px; }
+  .dashboard--sidebar-collapsed .dashboard__nav-btn span,
+  .dashboard--sidebar-collapsed .dashboard__nav-badge,
+  .dashboard--sidebar-collapsed .dashboard__logout span { display: inline; }
+  .dashboard--sidebar-collapsed .dashboard__nav-btn { padding: 8px 12px; gap: 6px; justify-content: flex-start; }
+  .dashboard--sidebar-collapsed .dashboard__logout { padding: 8px 10px; gap: 6px; }
+
+  /* Two rows: brand + logout on top, scrollable tabs below. */
+  .dashboard__navbar-inner {
+    flex-wrap: wrap;
+    height: auto;
+    padding: 8px 12px;
+    row-gap: 4px;
+  }
+  .dashboard__brand { order: 1; margin: 0; }
+  .dashboard__logout { order: 2; margin-left: auto; border-top: none; flex-shrink: 0; }
+  .dashboard__nav {
+    order: 3;
+    flex: 1 0 100%;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .dashboard__nav::-webkit-scrollbar { display: none; }
+  .dashboard__nav-btn { flex-shrink: 0; padding: 8px 12px; font-size: 0.8rem; }
+
+  .dashboard__header { margin-bottom: 20px; }
+  .dashboard__main { padding: 16px 14px; }
+
+  .admin__list { padding: 16px; border-radius: 12px; }
+  .admin__section-header { flex-wrap: wrap; gap: 10px; }
+
+  .period-toggle { width: 100%; }
+  .period-toggle__btn { flex: 1; }
+
+  /* The desktop rule clips (overflow: hidden); tables need to scroll sideways instead. */
+  .sales-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .sales-table { min-width: 560px; }
+  .sales-table th,
+  .sales-table td { padding-right: 12px; white-space: nowrap; }
+  .sales-table th:first-child,
+  .sales-table td:first-child { padding-left: 12px; }
+
+  .revenue-chart { gap: 3px; }
+  .revenue-chart__value { font-size: 0.6rem; }
+
+  /* 16px inputs stop iOS Safari zooming the page on focus. */
+  .admin__input,
+  .admin__select,
+  .admin__textarea,
+  .order-status-select { font-size: 16px; }
+}
+
+@media (max-width: 480px) {
+  .admin__grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .order-status-cards { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .dashboard__card-header { flex-wrap: wrap; gap: 6px; }
+}
