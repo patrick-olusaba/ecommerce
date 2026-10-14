@@ -777,9 +777,15 @@
   }
   .header__track-btn,
   .header__wishlist-btn,
-  .header__cart-btn,
-  .header__user-btn,
-  .header__user-menu-wrap {
+  .header__cart-btn {
     display: none;
   }
+  /* Account icon stays on mobile, left of the hamburger. */
+  .header__user-btn,
+  .header__user-menu-wrap {
+    order: -1;
+    flex-shrink: 0;
+  }
+  .header__search { margin: 0 4px; }
+  .header__actions { gap: 6px; }
 }
