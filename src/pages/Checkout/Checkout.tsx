@@ -8,6 +8,7 @@ import { recordSale } from '../../utils/salesStorage';
 import useDocumentTitle from '../../hooks/useDocumentTitle';
 import { formatKSh, FREE_SHIPPING_THRESHOLD, SHIPPING_COST } from '../../utils/currency';
 import './Checkout.css';
+import '../Cart/Cart.css'; // trust-strip styles
 
 /** Posts to the Vercel function in api/send-order-email.js. False = nothing was sent. */
 async function sendOrderEmail(
@@ -414,6 +415,9 @@ export default function Checkout() {
                   <span>{formatKSh(grandTotal)}</span>
                 </div>
               </div>
+              <ul className="trust-strip">
+                <li>🔒 Secure checkout</li><li>🚚 Fast delivery</li><li>↩️ 7-day returns</li><li>📱 M-Pesa accepted</li>
+              </ul>
             </div>
           </aside>
         </div>

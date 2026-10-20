@@ -224,6 +224,10 @@ function ProductDetail({ product }: { product: ProductType }) {
             </div>
           </div>
 
+          {product.stock != null && product.stock > 0 && product.stock <= 5 && (
+            <p className="stock-low">Only {product.stock} left in stock</p>
+          )}
+
           {/* Quantity + Add to Cart */}
           <div className="product-info__cart-row">
             <div className="qty-control">
@@ -261,6 +265,13 @@ function ProductDetail({ product }: { product: ProductType }) {
             </svg>
             Share via WhatsApp
           </a>
+
+          <button
+            className="product-info__copy-btn"
+            onClick={() => navigator.clipboard?.writeText(`${window.location.origin}/product/${product.id}`).then(() => addToast('Link copied'))}
+          >
+            Copy link
+          </button>
 
           {/* Extras */}
           <div className="product-info__extras">

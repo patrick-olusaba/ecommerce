@@ -68,6 +68,15 @@ export default function Cart() {
         </div>
       </div>
 
+      <div className="cart-ship">
+        <p className="cart-ship__text">
+          {total >= FREE_SHIPPING_THRESHOLD
+            ? '🎉 You qualify for free delivery!'
+            : <>Add <strong>{formatKSh(FREE_SHIPPING_THRESHOLD - total)}</strong> more for free delivery</>}
+        </p>
+        <div className="cart-ship__bar"><span style={{ width: `${Math.min(100, (total / FREE_SHIPPING_THRESHOLD) * 100)}%` }} /></div>
+      </div>
+
       <div className="cart-page__layout">
         {/* Product Table */}
         <table className="cart-table">
@@ -150,6 +159,9 @@ export default function Cart() {
           <Link to="/checkout" className="btn btn--primary btn--full" style={{ marginTop: 16 }}>
             Place Order
           </Link>
+          <ul className="trust-strip">
+            <li>🔒 Secure checkout</li><li>🚚 Fast delivery</li><li>↩️ 7-day returns</li><li>📱 M-Pesa accepted</li>
+          </ul>
         </aside>
       </div>
     </div>

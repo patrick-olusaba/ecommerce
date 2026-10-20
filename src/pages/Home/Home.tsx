@@ -370,7 +370,7 @@ export default function Home() {
               </svg>
             </div>
             <h3 className="features__card-title">Free Shipping</h3>
-            <p className="features__card-text">Enjoy fast, free delivery on every order — no conditions, just reliable doorstep delivery.</p>
+            <p className="features__card-text">Free doorstep delivery on orders above KSh 5,000. Just KSh 400 on smaller orders.</p>
           </div>
           <div className="features__card">
             <div className="features__icon features__icon--orange">

@@ -161,6 +161,9 @@ export default function ProductCard({ product }: Props) {
               <span className="product-card__original-price">{formatKSh(product.originalPrice!)}</span>
             )}
           </div>
+          {product.stock != null && product.stock > 0 && product.stock <= 5 && (
+            <span className="stock-low">Only {product.stock} left</span>
+          )}
         </div>
       </Link>
       {quickViewOpen && createPortal(
