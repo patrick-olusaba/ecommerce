@@ -279,7 +279,7 @@ function ProductDetail({ product }: { product: ProductType }) {
               &#128666; Free shipping on orders over {formatKSh(FREE_SHIPPING_THRESHOLD)}
             </div>
             <div className="product-info__extra">
-              &#8635; 30-day easy returns
+              &#8635; 7-day easy returns
             </div>
             <div className="product-info__extra">
               &#128274; Secure checkout

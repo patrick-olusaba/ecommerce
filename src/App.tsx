@@ -20,6 +20,8 @@ import Search from './pages/Search/Search';
 import Auth from './pages/Auth/Auth';
 import Account from './pages/Account/Account';
 import Privacy from './pages/Privacy/Privacy';
+import Terms from './pages/Terms/Terms';
+import Returns from './pages/Returns/Returns';
 import SizeGuide from './pages/SizeGuide/SizeGuide';
 import Product from './pages/Product/Product';
 import Cart from './pages/Cart/Cart';
@@ -158,6 +160,8 @@ function StoreLayout() {
             <Route path="/auth" element={<Auth />} />
             <Route path="/account" element={<Account />} />
             <Route path="/privacy" element={<Privacy />} />
+            <Route path="/terms" element={<Terms />} />
+            <Route path="/returns" element={<Returns />} />
             <Route path="/size-guide" element={<SizeGuide />} />
             <Route path="/product/:id" element={<Product />} />
             <Route path="/cart" element={<Cart />} />

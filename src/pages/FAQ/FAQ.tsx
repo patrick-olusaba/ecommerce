@@ -99,7 +99,7 @@ const FAQS = [
       },
       {
         q: 'How do I contact customer support?',
-        a: 'You can reach us via email at support@avytrendy.co.ke, call or WhatsApp at +254 707 855 708, or use the contact form on our Contact page.',
+        a: 'You can reach us via email at support@avytrendy.co.ke, call or WhatsApp at +254 715 493 814, or use the contact form on our Contact page.',
       },
     ],
   },

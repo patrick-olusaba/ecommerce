@@ -153,7 +153,7 @@ export default function Contact() {
                 </svg>
               </div>
               <h4>Phone</h4>
-              <p>+254 707 855 708</p>
+              <p>+254 715 493 814</p>
             </div>
 
             <div className="contact__info-card">
