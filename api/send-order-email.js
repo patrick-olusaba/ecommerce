@@ -57,7 +57,7 @@ export function buildOrderEmail(payload) {
       <tr style="border-top:2px solid #1a1a2e;font-weight:700"><td colspan="2">Total</td><td align="right">${ksh(total)}</td></tr>
     </tbody>
   </table>
-  <p style="color:#94a3b8;font-size:12px;margin-top:24px">Track your order at avytrendy.com/track-order</p>
+  <p style="color:#94a3b8;font-size:12px;margin-top:24px">Track your order at avytrendy.vercel.app/track-order</p>
 </div>`;
 
   return { to, subject: `Your Avytrendy order ${orderId}`, html };

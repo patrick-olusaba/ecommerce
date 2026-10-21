@@ -32,9 +32,12 @@ export default function ProductCard({ product }: Props) {
   const inWishlist = isInWishlist(product.id);
   const inCompare = isInCompare(product.id);
 
+  const outOfStock = product.stock === 0;
+
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (outOfStock) return;
     addItem(product, product.sizes[0], product.colors[0], 1);
     addToast(`${product.name} added to cart`);
   };
@@ -119,7 +122,7 @@ export default function ProductCard({ product }: Props) {
                 <circle cx="12" cy="12" r="3"/>
               </svg>
             </button>
-            <button className="product-card__cart-btn" onClick={handleAddToCart} aria-label="Add to cart">
+            <button className="product-card__cart-btn" onClick={handleAddToCart} disabled={outOfStock} aria-label={outOfStock ? 'Out of stock' : 'Add to cart'}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
                 <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
@@ -161,6 +164,7 @@ export default function ProductCard({ product }: Props) {
               <span className="product-card__original-price">{formatKSh(product.originalPrice!)}</span>
             )}
           </div>
+          {outOfStock && <span className="stock-low">Out of stock</span>}
           {product.stock != null && product.stock > 0 && product.stock <= 5 && (
             <span className="stock-low">Only {product.stock} left</span>
           )}

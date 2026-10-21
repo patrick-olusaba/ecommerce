@@ -29,7 +29,7 @@ export function buildStatusEmail({ orderId, status, name }) {
   <h1 style="font-size:1.3rem;margin:0 0 4px">${msg.heading}</h1>
   <p style="color:#94a3b8;margin:0 0 20px">Order #${escapeHtml(orderId)}</p>
   <p>${hello}</p><p>${msg.body}</p>
-  <p style="color:#94a3b8;font-size:12px;margin-top:24px">Track your order at avytrendy.com/track-order</p>
+  <p style="color:#94a3b8;font-size:12px;margin-top:24px">Track your order at avytrendy.vercel.app/track-order</p>
 </div>`;
   return { subject: `Your Avytrendy order ${orderId} ${msg.subject}`, html };
 }

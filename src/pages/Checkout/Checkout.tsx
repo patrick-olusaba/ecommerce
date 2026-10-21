@@ -45,6 +45,27 @@ async function sendOrderEmail(
   }
 }
 
+/** Sends the STK push, then polls the server until the customer pays, cancels, or ~90s pass. */
+async function payWithMpesa(phone: string, amount: number): Promise<{ ok: boolean; message?: string }> {
+  const post = async (url: string, body: object) => {
+    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    return res.json();
+  };
+  try {
+    const start = await post('/api/mpesa-stk', { phone, amount });
+    if (!start.checkoutRequestId) return { ok: false, message: start.error ?? 'Could not start M-Pesa payment' };
+    for (let i = 0; i < 30; i++) {
+      await new Promise((r) => setTimeout(r, 3000));
+      const r = await post('/api/mpesa-status', { checkoutRequestId: start.checkoutRequestId });
+      if (r.status === 'paid') return { ok: true };
+      if (r.status === 'failed') return { ok: false, message: r.message };
+    }
+    return { ok: false, message: 'No response from your phone. Please try again.' };
+  } catch {
+    return { ok: false, message: 'Could not reach M-Pesa. Please try again or choose Cash on Delivery.' };
+  }
+}
+
 // AVT-###### for humans, plus a random suffix so the id can't be enumerated (orders are publicly gettable by id).
 function newOrderNumber(): string {
   const [n, tail] = crypto.getRandomValues(new Uint32Array(2));
@@ -63,6 +84,7 @@ export default function Checkout() {
   const [submitting, setSubmitting] = useState(false);
   const [mpesaPhone, setMpesaPhone] = useState('');
   const [phoneError, setPhoneError] = useState('');
+  const [waitingForPhone, setWaitingForPhone] = useState(false);
   const [email, setEmail] = useState('');
   const [firstName, setFirstName] = useState('');
   const [placedItems, setPlacedItems] = useState<typeof items>([]);
@@ -100,6 +122,17 @@ export default function Checkout() {
     const field = (name: string) => (form.get(name) as string | null)?.trim() || undefined;
 
     setSubmitting(true);
+    if (paymentMethod === 'mpesa') {
+      setPhoneError('');
+      setWaitingForPhone(true);
+      const paid = await payWithMpesa(mpesaPhone.trim().replace(/[\s-]/g, ''), grandTotal);
+      setWaitingForPhone(false);
+      if (!paid.ok) {
+        setSubmitting(false);
+        addToast(paid.message ?? 'M-Pesa payment failed', 'error');
+        return;
+      }
+    }
     const now = new Date();
     setOrderDate(now);
     const saleItems = items.map((item) => ({
@@ -355,7 +388,7 @@ export default function Checkout() {
             </fieldset>
 
             <button type="submit" className="btn btn--primary btn--lg btn--full" disabled={submitting}>
-              {submitting ? 'Placing Order...' : `Place Order — ${formatKSh(grandTotal)}`}
+              {waitingForPhone ? 'Check your phone and enter your M-Pesa PIN…' : submitting ? 'Placing Order...' : `Place Order — ${formatKSh(grandTotal)}`}
             </button>
           </form>
 

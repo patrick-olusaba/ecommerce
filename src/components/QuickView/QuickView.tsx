@@ -125,8 +125,8 @@ export default function QuickView({ product, onClose }: Props) {
 
             {/* Actions */}
             <div className="qv-info__actions">
-              <button className="btn btn--primary btn--lg" onClick={handleAdd} style={{ flex: 1 }}>
-                {added ? 'Added!' : 'Add to Cart'}
+              <button className="btn btn--primary btn--lg" onClick={handleAdd} disabled={product.stock === 0} style={{ flex: 1 }}>
+                {product.stock === 0 ? 'Out of stock' : added ? 'Added!' : 'Add to Cart'}
               </button>
               <Link
                 to={`/product/${product.id}`}

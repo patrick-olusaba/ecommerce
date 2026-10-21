@@ -11,7 +11,8 @@ import RecentlyViewed from '../../components/RecentlyViewed/RecentlyViewed';
 import useRecentlyViewed from '../../hooks/useRecentlyViewed';
 import { formatKSh, FREE_SHIPPING_THRESHOLD } from '../../utils/currency';
 import { getReviews, getReviewStats, addReview } from '../../utils/reviewStorage';
-import { addDocument } from '../../firebase/firestore';
+import { addDocument, queryDocuments } from '../../firebase/firestore';
+import type { Sale } from '../../utils/salesStorage';
 import type { Review } from '../../utils/reviewStorage';
 import type { Product as ProductType } from '../../types';
 import './Product.css';
@@ -65,6 +66,18 @@ function ProductDetail({ product }: { product: ProductType }) {
   const [reviews, setReviews] = useState<Review[]>(() => getReviews(product.id));
   const [reviewForm, setReviewForm] = useState({ name: '', rating: 5, comment: '' });
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
+  // Only signed-in shoppers with an order containing this product can review it.
+  // ponytail: client-side gate only; Firestore rules can't search an order's item list. Enforce via a Cloud Function if abused.
+  const [hasBought, setHasBought] = useState(false);
+  useEffect(() => {
+    if (!user) { setHasBought(false); return; }
+    let live = true;
+    queryDocuments<Sale>('orders', 'uid', user.uid).then((orders) => {
+      if (live) setHasBought(orders.some((o) => o.items?.some((i) => i.productId === product.id)));
+    });
+    return () => { live = false; };
+  }, [user, product.id]);
+  const outOfStock = product.stock === 0;
 
   const reviewStats = useMemo(() => {
     const userStats = getReviewStats(product.id);
@@ -235,8 +248,8 @@ function ProductDetail({ product }: { product: ProductType }) {
               <span>{quantity}</span>
               <button onClick={() => setQuantity(quantity + 1)}>+</button>
             </div>
-            <button className="btn btn--primary btn--lg" onClick={handleAddToCart}>
-              {added ? 'Added!' : 'Add to Cart'}
+            <button className="btn btn--primary btn--lg" onClick={handleAddToCart} disabled={outOfStock}>
+              {outOfStock ? 'Out of stock' : added ? 'Added!' : 'Add to Cart'}
             </button>
           </div>
 
@@ -297,8 +310,9 @@ function ProductDetail({ product }: { product: ProductType }) {
         <button
           className="btn btn--primary btn--lg product-sticky-bar__btn"
           onClick={handleAddToCart}
+          disabled={outOfStock}
         >
-          {added ? 'Added!' : 'Add to Cart'}
+          {outOfStock ? 'Out of stock' : added ? 'Added!' : 'Add to Cart'}
         </button>
       </div>
 
@@ -307,6 +321,11 @@ function ProductDetail({ product }: { product: ProductType }) {
         <h2 className="product-reviews__title">Customer Reviews</h2>
 
         {/* Review Form */}
+        {!hasBought ? (
+          <p className="product-reviews__gate">
+            {user ? 'Only customers who bought this product can review it.' : <><Link to="/auth">Sign in</Link> to review products you have bought.</>}
+          </p>
+        ) : (
         <div className="product-reviews__form-card">
           <h3>Write a Review</h3>
           <form className="product-reviews__form" onSubmit={handleReviewSubmit}>
@@ -353,6 +372,7 @@ function ProductDetail({ product }: { product: ProductType }) {
             </button>
           </form>
         </div>
+        )}
 
         {/* Reviews List */}
         {reviews.length > 0 ? (
