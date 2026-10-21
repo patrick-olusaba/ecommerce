@@ -36,6 +36,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ checkoutRequestId: data.CheckoutRequestID });
   } catch (err) {
     console.error('STK push failed', err);
-    return res.status(200).json({ error: 'Could not reach M-Pesa' });
+    // Daraja auth errors carry only a status code (no secrets), and are the usual first-setup failure.
+    return res.status(200).json({ error: String(err?.message).startsWith('Daraja') ? err.message : 'Could not reach M-Pesa' });
   }
 }
