@@ -46,14 +46,16 @@ async function sendOrderEmail(
 }
 
 /** Sends the STK push, then polls the server until the customer pays, cancels, or ~90s pass. */
-async function payWithMpesa(phone: string, amount: number): Promise<{ ok: boolean; message?: string }> {
+async function payWithMpesa(phone: string, items: { productId: number; quantity: number }[], expected: number): Promise<{ ok: boolean; message?: string }> {
   const post = async (url: string, body: object) => {
     const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     return res.json();
   };
   try {
-    const start = await post('/api/mpesa-stk', { phone, amount });
+    const start = await post('/api/mpesa-stk', { phone, items });
     if (!start.checkoutRequestId) return { ok: false, message: start.error ?? 'Could not start M-Pesa payment' };
+    // The server prices the order itself; if it disagrees with the page, stop before anyone pays.
+    if (start.amount !== expected) return { ok: false, message: 'Prices have changed. Please review your cart and try again.' };
     for (let i = 0; i < 30; i++) {
       await new Promise((r) => setTimeout(r, 3000));
       const r = await post('/api/mpesa-status', { checkoutRequestId: start.checkoutRequestId });
@@ -125,7 +127,11 @@ export default function Checkout() {
     if (paymentMethod === 'mpesa') {
       setPhoneError('');
       setWaitingForPhone(true);
-      const paid = await payWithMpesa(mpesaPhone.trim().replace(/[\s-]/g, ''), grandTotal);
+      const paid = await payWithMpesa(
+        mpesaPhone.trim().replace(/[\s-]/g, ''),
+        items.map((i) => ({ productId: i.product.id, quantity: i.quantity })),
+        grandTotal,
+      );
       setWaitingForPhone(false);
       if (!paid.ok) {
         setSubmitting(false);
