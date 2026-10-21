@@ -18,19 +18,21 @@ export function stkPassword(shortcode, passkey, ts) {
 }
 
 export function mpesaConfig(env = process.env) {
-  const { MPESA_CONSUMER_KEY: key, MPESA_CONSUMER_SECRET: secret, MPESA_SHORTCODE: shortcode, MPESA_PASSKEY: passkey, MPESA_CALLBACK_URL: callbackUrl } = env;
+  // Trimmed: a pasted trailing space or newline is the usual cause of Daraja's 400 on the token call.
+  const v = (name) => env[name]?.trim();
+  const [key, secret, shortcode, passkey, callbackUrl] = ['MPESA_CONSUMER_KEY', 'MPESA_CONSUMER_SECRET', 'MPESA_SHORTCODE', 'MPESA_PASSKEY', 'MPESA_CALLBACK_URL'].map(v);
   if (!key || !secret || !shortcode || !passkey || !callbackUrl) return null;
   return {
     key, secret, shortcode, passkey, callbackUrl,
-    txnType: env.MPESA_TXN_TYPE || 'CustomerPayBillOnline',
-    base: env.MPESA_ENV === 'live' ? 'https://api.safaricom.co.ke' : 'https://sandbox.safaricom.co.ke',
+    txnType: v('MPESA_TXN_TYPE') || 'CustomerPayBillOnline',
+    base: v('MPESA_ENV') === 'live' ? 'https://api.safaricom.co.ke' : 'https://sandbox.safaricom.co.ke',
   };
 }
 
 export async function getToken(cfg) {
   const auth = Buffer.from(`${cfg.key}:${cfg.secret}`).toString('base64');
   const res = await fetch(`${cfg.base}/oauth/v1/generate?grant_type=client_credentials`, { headers: { Authorization: `Basic ${auth}` } });
-  if (!res.ok) throw new Error(`Daraja auth failed (${res.status})`);
+  if (!res.ok) throw new Error(`Daraja auth failed (${res.status}) on ${cfg.base.includes('sandbox') ? 'sandbox' : 'live'}: ${(await res.text()).slice(0, 120)}`);
   return (await res.json()).access_token;
 }
 
