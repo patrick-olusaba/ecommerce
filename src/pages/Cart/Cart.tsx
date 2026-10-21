@@ -160,7 +160,7 @@ export default function Cart() {
             Place Order
           </Link>
           <ul className="trust-strip">
-            <li>🔒 Secure checkout</li><li>🚚 Fast delivery</li><li>↩️ 7-day returns</li><li>📱 M-Pesa accepted</li>
+            <li>🔒 Secure checkout</li><li>🚚 Fast delivery</li><li>↩️ 7-day returns</li><li>💵 Pay on delivery</li>
           </ul>
         </aside>
       </div>

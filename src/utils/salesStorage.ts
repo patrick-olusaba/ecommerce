@@ -76,6 +76,10 @@ export function getOrderStatus(order: Sale): number {
   // Admin-set status takes priority
   if (order.status) return order.status;
 
+  // Real orders (random-suffix ids) only move when the admin moves them; telling a buyer
+  // "Delivered" just because 48 hours passed would be a lie. Seeded demo orders still animate.
+  if (/^AVT-\d{6}-[A-Z0-9]{6}$/.test(order.id)) return 1;
+
   // Otherwise derive from time
   const now = Date.now();
   const orderTime = new Date(order.date).getTime();

@@ -44,3 +44,18 @@ test('fieldNumber reads integer and double values', () => {
   assert.equal(fieldNumber({ fields: { price: { doubleValue: 12.5 } } }, 'price'), 12.5);
   assert.equal(fieldNumber({}, 'price'), null);
 });
+
+test('catalog and sitemap are up to date and share tags get the product', async () => {
+  const { extractMeta, buildSitemap } = await import('../scripts/gen-prices.mjs');
+  const { withProductMeta } = await import('../api/product-meta.js');
+  const src = readFileSync('src/data/products.ts', 'utf8');
+  const meta = extractMeta(src);
+  assert.deepEqual(JSON.parse(readFileSync('api/_catalog.json', 'utf8')), meta, 'run: node scripts/gen-prices.mjs');
+  assert.equal(readFileSync('public/sitemap.xml', 'utf8'), buildSitemap(Object.keys(meta)));
+
+  const html = readFileSync('index.html', 'utf8');
+  const out = withProductMeta(html, '50', { name: 'Tom & "Jerry"', description: 'Nice', image: '/watches/a.jpeg' });
+  assert.match(out, /<title>Tom &amp; &quot;Jerry&quot; \| Avytrendy<\/title>/);
+  assert.match(out, /property="og:image" content="https:\/\/avytrendy\.vercel\.app\/watches\/a\.jpeg"/);
+  assert.match(out, /twitter:image" content="https:\/\/avytrendy\.vercel\.app\/watches\/a\.jpeg"/);
+});

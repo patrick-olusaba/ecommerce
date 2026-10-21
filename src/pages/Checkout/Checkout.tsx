@@ -45,6 +45,9 @@ async function sendOrderEmail(
   }
 }
 
+// M-Pesa stays off until a live Paybill/Till exists: set VITE_MPESA_ENABLED=true in Vercel and redeploy.
+const MPESA_ENABLED = import.meta.env.VITE_MPESA_ENABLED === 'true';
+
 /** Sends the STK push, then polls the server until the customer pays, cancels, or ~90s pass. */
 async function payWithMpesa(phone: string, items: { productId: number; quantity: number }[], expected: number): Promise<{ ok: boolean; message?: string }> {
   const post = async (url: string, body: object) => {
@@ -81,7 +84,7 @@ export default function Checkout() {
   const { user } = useAuth();
   const [placed, setPlaced] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<'mpesa' | 'cod'>('mpesa');
+  const [paymentMethod, setPaymentMethod] = useState<'mpesa' | 'cod'>(MPESA_ENABLED ? 'mpesa' : 'cod');
   const [clearConfirm, setClearConfirm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [mpesaPhone, setMpesaPhone] = useState('');
@@ -355,16 +358,18 @@ export default function Checkout() {
             <fieldset className="checkout__section">
               <legend className="checkout__section-title">Payment Method</legend>
               <div className="checkout__radio-group">
-                <label className="checkout__radio">
-                  <input
-                    type="radio"
-                    name="payment"
-                    value="mpesa"
-                    checked={paymentMethod === 'mpesa'}
-                    onChange={() => setPaymentMethod('mpesa')}
-                  />
-                  <span>M-Pesa</span>
-                </label>
+                {MPESA_ENABLED && (
+                  <label className="checkout__radio">
+                    <input
+                      type="radio"
+                      name="payment"
+                      value="mpesa"
+                      checked={paymentMethod === 'mpesa'}
+                      onChange={() => setPaymentMethod('mpesa')}
+                    />
+                    <span>M-Pesa</span>
+                  </label>
+                )}
                 <label className="checkout__radio">
                   <input
                     type="radio"
@@ -455,7 +460,7 @@ export default function Checkout() {
                 </div>
               </div>
               <ul className="trust-strip">
-                <li>🔒 Secure checkout</li><li>🚚 Fast delivery</li><li>↩️ 7-day returns</li><li>📱 M-Pesa accepted</li>
+                <li>🔒 Secure checkout</li><li>🚚 Fast delivery</li><li>↩️ 7-day returns</li><li>💵 Pay on delivery</li>
               </ul>
             </div>
           </aside>
