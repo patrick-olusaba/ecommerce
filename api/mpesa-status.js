@@ -6,6 +6,7 @@ import { darajaPost, mpesaConfig, stkPassword, timestamp } from './_mpesa.js';
 export function interpretQuery({ ok, data }) {
   if (ok && data.ResultCode !== undefined) {
     if (String(data.ResultCode) === '0') return { status: 'paid' };
+    if (String(data.ResultCode) === '4999') return { status: 'pending' }; // Daraja: "still under processing"
     return { status: 'failed', message: data.ResultDesc || 'Payment was not completed' };
   }
   // While the customer is still entering their PIN Daraja answers with an error, not a result.

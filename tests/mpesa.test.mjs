@@ -22,5 +22,6 @@ test('mpesaConfig is null until every variable is set, sandbox by default', () =
 test('interpretQuery maps Daraja answers', () => {
   assert.deepEqual(interpretQuery({ ok: true, data: { ResultCode: '0' } }), { status: 'paid' });
   assert.equal(interpretQuery({ ok: true, data: { ResultCode: '1032', ResultDesc: 'Request cancelled by user' } }).status, 'failed');
+  assert.deepEqual(interpretQuery({ ok: true, data: { ResultCode: '4999', ResultDesc: 'The transaction is still under processing' } }), { status: 'pending' });
   assert.deepEqual(interpretQuery({ ok: false, data: { errorCode: '500.001.1001' } }), { status: 'pending' });
 });
