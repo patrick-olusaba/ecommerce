@@ -224,7 +224,10 @@ export default function Checkout() {
       const canvas = document.createElement('canvas');
       canvas.width = 600;
       canvas.height = Math.round((600 * img.naturalHeight) / img.naturalWidth);
-      canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const ctx = canvas.getContext('2d')!;
+      ctx.fillStyle = '#fff'; // JPEG has no alpha: transparent pixels would turn black
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       pdf.addImage(canvas.toDataURL('image/jpeg', 0.85), 'JPEG', 20, 12, 45, (45 * canvas.height) / canvas.width);
     } catch {
       pdf.setFontSize(20).setFont('helvetica', 'bold').text('Avytrendy', 20, 24);
