@@ -20,6 +20,31 @@
     <title>AVYTRENDY — Modern Ecommerce</title>
   </head>
   <body>
+    <div id="splash" aria-label="Loading">
+      <img src="/logo/logo.png" alt="Avytrendy" />
+
+      <div class="spin"><b></b><b></b><b></b><b></b><b></b><b></b><b></b><b></b><b></b><b></b></div>
+    </div>
+    <style>
+      #splash{position:fixed;inset:0;z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;background:#fff;color:#111;font:700 28px/1 Inter,system-ui,sans-serif;letter-spacing:.25em;transition:opacity .4s}
+      #splash.done{opacity:0;pointer-events:none}
+      #splash img{width:min(220px,60vw);height:auto}
+      #splash .spin{position:relative;width:72px;height:72px;animation:splash 1s steps(10) infinite}
+      #splash .spin b{position:absolute;top:50%;left:50%;border-radius:50%;background:linear-gradient(#ff5c7a,#ff2d55);box-shadow:0 1px 3px rgba(0,0,0,.35)}
+      #splash .spin b:nth-child(n+4){background:linear-gradient(#9b4de0,#6a2cb8)}
+      #splash .spin b:nth-child(n+8){background:linear-gradient(#f5cf72,#d9a032)}
+      #splash .spin b:nth-child(1){width:16px;height:16px;margin:-8px;transform:rotate(0deg) translateY(-30px)}
+      #splash .spin b:nth-child(2){width:15px;height:15px;margin:-7.5px;transform:rotate(36deg) translateY(-30px)}
+      #splash .spin b:nth-child(3){width:14px;height:14px;margin:-7px;transform:rotate(72deg) translateY(-30px)}
+      #splash .spin b:nth-child(4){width:13px;height:13px;margin:-6.5px;transform:rotate(108deg) translateY(-30px)}
+      #splash .spin b:nth-child(5){width:12px;height:12px;margin:-6px;transform:rotate(144deg) translateY(-30px)}
+      #splash .spin b:nth-child(6){width:11px;height:11px;margin:-5.5px;transform:rotate(180deg) translateY(-30px)}
+      #splash .spin b:nth-child(7){width:10px;height:10px;margin:-5px;transform:rotate(216deg) translateY(-30px)}
+      #splash .spin b:nth-child(8){width:9px;height:9px;margin:-4.5px;transform:rotate(252deg) translateY(-30px)}
+      #splash .spin b:nth-child(9){width:8px;height:8px;margin:-4px;transform:rotate(288deg) translateY(-30px)}
+      #splash .spin b:nth-child(10){width:7px;height:7px;margin:-3.5px;transform:rotate(324deg) translateY(-30px)}
+      @keyframes splash{to{transform:rotate(360deg)}}
+    </style>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
