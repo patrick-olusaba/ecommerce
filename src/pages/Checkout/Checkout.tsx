@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
 import { useToast } from '../../context/ToastContext';
@@ -210,45 +210,55 @@ export default function Checkout() {
     clearCart();
   };
 
-  const receiptHTML = useMemo(() => {
-    const placedTotal = placedItems.reduce((s, i) => s + i.product.price * i.quantity, 0);
-    return `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>Receipt ${orderNumber}</title>
-<style>
-  body { font-family: -apple-system, sans-serif; max-width: 480px; margin: 40px auto; padding: 0 20px; color: #1a1a2e; }
-  h1 { font-size: 1.4rem; margin: 0 0 4px; }
-  .id { color: #94a3b8; font-size: 0.88rem; margin: 0 0 24px; }
-  table { width: 100%; border-collapse: collapse; margin: 16px 0; }
-  th, td { text-align: left; padding: 10px 8px; font-size: 0.9rem; }
-  th { color: #94a3b8; font-weight: 500; border-bottom: 2px solid #e2e8f0; }
-  td { border-bottom: 1px solid #f1f5f9; }
-  .total-row td { font-weight: 700; font-size: 1rem; border-top: 2px solid #1a1a2e; border-bottom: none; }
-  .footer { margin-top: 24px; font-size: 0.8rem; color: #94a3b8; text-align: center; }
-</style></head><body>
-  <h1>Avytrendy</h1>
-  <p class="id">Order #${orderNumber} &middot; ${orderDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
-  ${email ? `<p style="color:#64748b;font-size:0.9rem;">Email: ${email}</p>` : ''}
-  <table>
-    <thead><tr><th>Item</th><th>Qty</th><th style="text-align:right">Price</th></tr></thead>
-    <tbody>
-      ${placedItems.map((item) => `<tr><td>${item.product.name}<br><small style="color:#94a3b8">${item.size} / ${item.color}</small></td><td>${item.quantity}</td><td style="text-align:right">${formatKSh(item.product.price * item.quantity)}</td></tr>`).join('')}
-      <tr><td colspan="2">Subtotal</td><td style="text-align:right">${formatKSh(placedTotal)}</td></tr>
-      <tr><td colspan="2">Shipping</td><td style="text-align:right">${placedTotal >= FREE_SHIPPING_THRESHOLD ? 'Free' : formatKSh(SHIPPING_COST)}</td></tr>
-      <tr class="total-row"><td colspan="2">Total</td><td style="text-align:right">${formatKSh(placedGrandTotal)}</td></tr>
-    </tbody>
-  </table>
-  <p class="footer">Thank you for shopping with Avytrendy!</p>
-</body></html>`;
-  }, [placedItems, placedGrandTotal, email, orderDate, orderNumber]);
+  const handleDownloadReceipt = async () => {
+    const { jsPDF } = await import('jspdf'); // loaded on click so it stays out of the main bundle
+    const pdf = new jsPDF();
+    const subtotal = placedItems.reduce((s, i) => s + i.product.price * i.quantity, 0);
+    let y = 52;
 
-  const handleDownloadReceipt = () => {
-    const blob = new Blob([receiptHTML], { type: 'text/html;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `avytrendy-receipt-${orderNumber}.html`;
-    a.click();
-    URL.revokeObjectURL(url);
+    // Downscaled JPEG keeps the PDF small; if the logo can't load the receipt still downloads.
+    try {
+      const img = new Image();
+      img.src = '/logo/logo.png';
+      await img.decode();
+      const canvas = document.createElement('canvas');
+      canvas.width = 600;
+      canvas.height = Math.round((600 * img.naturalHeight) / img.naturalWidth);
+      canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height);
+      pdf.addImage(canvas.toDataURL('image/jpeg', 0.85), 'JPEG', 20, 12, 45, (45 * canvas.height) / canvas.width);
+    } catch {
+      pdf.setFontSize(20).setFont('helvetica', 'bold').text('Avytrendy', 20, 24);
+    }
+    pdf.setFontSize(10).setFont('helvetica', 'normal').setTextColor(120);
+    pdf.text(`Order #${orderNumber}  |  ${orderDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`, 20, y);
+    if (email) pdf.text(`Email: ${email}`, 20, (y += 6));
+    y += 12;
+
+    pdf.setTextColor(120).text('Item', 20, y).text('Qty', 130, y).text('Price', 190, y, { align: 'right' });
+    pdf.setDrawColor(200).line(20, y + 2, 190, y + 2);
+    y += 9;
+
+    for (const item of placedItems) {
+      if (y > 265) { pdf.addPage(); y = 24; }
+      const name = pdf.splitTextToSize(item.product.name, 100) as string[];
+      pdf.setTextColor(30).text(name, 20, y).text(String(item.quantity), 130, y);
+      pdf.text(formatKSh(item.product.price * item.quantity), 190, y, { align: 'right' });
+      y += name.length * 5;
+      pdf.setFontSize(8).setTextColor(140).text(`${item.size} / ${item.color}`, 20, y);
+      pdf.setFontSize(10);
+      y += 8;
+    }
+
+    pdf.setTextColor(30).line(20, y - 3, 190, y - 3);
+    y += 4;
+    pdf.text('Subtotal', 20, y).text(formatKSh(subtotal), 190, y, { align: 'right' });
+    y += 7;
+    pdf.text('Shipping', 20, y).text(subtotal >= FREE_SHIPPING_THRESHOLD ? 'Free' : formatKSh(SHIPPING_COST), 190, y, { align: 'right' });
+    y += 9;
+    pdf.setFont('helvetica', 'bold').setFontSize(12).text('Total', 20, y).text(formatKSh(placedGrandTotal), 190, y, { align: 'right' });
+    pdf.setFont('helvetica', 'normal').setFontSize(9).setTextColor(140).text('Thank you for shopping with Avytrendy!', 105, y + 20, { align: 'center' });
+
+    pdf.save(`avytrendy-receipt-${orderNumber}.pdf`);
   };
 
   if (items.length === 0 && !placed) {
