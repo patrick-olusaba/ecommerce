@@ -4,7 +4,7 @@ import { useCart } from '../../context/CartContext';
 import { useToast } from '../../context/ToastContext';
 import { useAuth } from '../../context/AuthContext';
 import { imagesForColor, getProductById } from '../../data/products';
-import { recordSale } from '../../utils/salesStorage';
+import { recordSale, getCodAccess, normalizePhone } from '../../utils/salesStorage';
 import useDocumentTitle from '../../hooks/useDocumentTitle';
 import { formatKSh, FREE_SHIPPING_THRESHOLD, SHIPPING_COST } from '../../utils/currency';
 import './Checkout.css';
@@ -84,6 +84,7 @@ export default function Checkout() {
   const { user } = useAuth();
   const [placed, setPlaced] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
+  const [awaitingConfirm, setAwaitingConfirm] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'mpesa' | 'cod'>(MPESA_ENABLED ? 'mpesa' : 'cod');
   const [clearConfirm, setClearConfirm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -126,6 +127,31 @@ export default function Checkout() {
     const form = new FormData(e.currentTarget);
     const field = (name: string) => (form.get(name) as string | null)?.trim() || undefined;
 
+    // Cash on delivery: needs a real phone; numbers with repeated failed deliveries are refused,
+    // buyers who've received an order before are trusted, everyone else confirms on WhatsApp.
+    let codAccess: 'blocked' | 'trusted' | 'new' = 'new';
+    if (paymentMethod === 'cod') {
+      const phone = field('phone');
+      if (!normalizePhone(phone)) {
+        addToast('Enter a valid Kenyan phone number so we can reach you for delivery', 'error');
+        return;
+      }
+      setSubmitting(true);
+      codAccess = await getCodAccess(phone!);
+      if (codAccess === 'blocked') {
+        setSubmitting(false);
+        addToast('Cash on Delivery isn’t available for this number. Please contact us on WhatsApp.', 'error');
+        return;
+      }
+      // First orders are prepaid once M-Pesa is live; until then they confirm on WhatsApp instead.
+      if (codAccess === 'new' && MPESA_ENABLED) {
+        setSubmitting(false);
+        setPaymentMethod('mpesa');
+        addToast('For your first order please pay with M-Pesa. Cash on Delivery opens after your first delivery.', 'error');
+        return;
+      }
+    }
+
     setSubmitting(true);
     if (paymentMethod === 'mpesa') {
       setPhoneError('');
@@ -164,6 +190,8 @@ export default function Checkout() {
       email: buyerEmail || undefined,
       phone: paymentMethod === 'mpesa' ? mpesaPhone.trim() : field('phone'),
       paymentMethod,
+      confirmed: paymentMethod === 'cod' ? codAccess === 'trusted' : undefined,
+      phoneKey: (paymentMethod === 'cod' && normalizePhone(field('phone'))) || undefined,
       customer: {
         name: [field('firstName'), field('lastName')].filter(Boolean).join(' ') || undefined,
         address: field('address'),
@@ -174,6 +202,7 @@ export default function Checkout() {
     const mailed = saved && await sendOrderEmail(buyerEmail, orderNumber, saleItems, grandTotal, shipping);
 
     setEmailSent(mailed);
+    setAwaitingConfirm(paymentMethod === 'cod' && codAccess !== 'trusted');
     setPlacedItems([...items]);
     setPlacedGrandTotal(grandTotal);
     setPlaced(true);
@@ -269,6 +298,22 @@ export default function Checkout() {
                 )}
               </p>
             )}
+            {awaitingConfirm && (
+              <div className="checkout-success__email" style={{ marginBottom: 16 }}>
+                <p>
+                  <strong>One last step:</strong> confirm your order on WhatsApp. We dispatch once you reply,
+                  and you'll need to be available to pay cash when it arrives.
+                </p>
+                <a
+                  className="btn btn--primary"
+                  href={`https://wa.me/254715493814?text=${encodeURIComponent(`Hi Avytrendy, I'm confirming my order ${orderNumber}. I'll be available to receive it.`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Confirm on WhatsApp
+                </a>
+              </div>
+            )}
             <div className="checkout-success__summary">
               <h3>Order Summary</h3>
               <div className="checkout-success__items">
@@ -321,7 +366,7 @@ export default function Checkout() {
                 />
               </div>
               <div className="checkout__row">
-                <input type="tel" name="phone" placeholder="Phone number" className="checkout__input" />
+                <input type="tel" name="phone" placeholder="Phone number" required={paymentMethod === 'cod'} className="checkout__input" />
               </div>
             </fieldset>
 
@@ -381,6 +426,11 @@ export default function Checkout() {
                   <span>Cash on Delivery</span>
                 </label>
               </div>
+              {paymentMethod === 'cod' && (
+                <p style={{ fontSize: '0.8rem', color: '#64748b', marginTop: 12 }}>
+                  Please be available to receive and pay for your order. Repeated failed deliveries disable Cash on Delivery for your number.
+                </p>
+              )}
               {paymentMethod === 'mpesa' && (
                 <div className="checkout__row" style={{ marginTop: 12 }}>
                   <input

@@ -26,8 +26,26 @@ service cloud.firestore {
       return d[k] is string && d[k].size() <= n;
     }
 
+    // Cash-on-delivery orders must carry a real Kenyan phone plus its normalized phoneKey, and the
+    // key must not be on the blocked list (2+ failed deliveries in cod_phones). Only a number with
+    // a delivered order may self-mark an order confirmed. The phone is stripped of spaces/dashes,
+    // then must be 07XXXXXXXX / 2547XXXXXXXX / +2547XXXXXXXX ending in the same 9 digits as phoneKey.
+    function codOk(d) {
+      return !('paymentMethod' in d) || d.paymentMethod != 'cod'
+        || ('phone' in d && 'phoneKey' in d && d.phone is string && d.phoneKey is string
+            && d.phoneKey.matches('^2547[0-9]{8}$')
+            && d.phone.replace('[\\s-]', '').matches('^(\\+?254|0)' + d.phoneKey.replace('^254', '') + '$')
+            && (!exists(/databases/$(database)/documents/cod_phones/$(d.phoneKey))
+                || (get(/databases/$(database)/documents/cod_phones/$(d.phoneKey)).data.failed < 2
+                    && (d.get('confirmed', false) == false
+                        || get(/databases/$(database)/documents/cod_phones/$(d.phoneKey)).data.delivered > 0)))
+            && (d.get('confirmed', false) == false || exists(/databases/$(database)/documents/cod_phones/$(d.phoneKey))));
+    }
+
     function validOrder(d, id) {
-      return d.keys().hasOnly(['id', 'date', 'items', 'total', 'itemCount', 'uid', 'email', 'phone', 'paymentMethod', 'customer', 'createdAt'])
+      return d.keys().hasOnly(['id', 'date', 'items', 'total', 'itemCount', 'uid', 'email', 'phone', 'paymentMethod', 'customer', 'confirmed', 'phoneKey', 'createdAt'])
+        && (!('confirmed' in d) || d.confirmed is bool)
+        && codOk(d)
         && d.id == id && id.matches('^AVT-[0-9]{6}-[A-Z0-9]{6}$')
         && str(d, 'date', 40) && str(d, 'createdAt', 40)
         && d.items is list && d.items.size() >= 1 && d.items.size() <= 50
@@ -72,6 +90,13 @@ service cloud.firestore {
       allow list: if isAdmin() || (request.auth != null && resource.data.uid == request.auth.uid);
       allow update: if isAdmin();
       allow delete: if false;
+    }
+
+    // Per-phone delivery record (doc id = 2547XXXXXXXX) that checkout reads to decide
+    // cash-on-delivery access. Get-only, so numbers can't be listed; only admins write.
+    match /cod_phones/{phone} {
+      allow get: if true;
+      allow write: if isAdmin();
     }
 
     // Catalog additions/edits made in /admin. Anyone can read; only admins write.

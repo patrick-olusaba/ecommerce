@@ -6,7 +6,7 @@ import ProductEditor from './ProductEditor';
 import ColorPhotos from './ColorPhotos';
 import { compressImage, fitsInDoc } from '../../utils/compressImage';
 import useDocumentTitle from '../../hooks/useDocumentTitle';
-import { getSales, getTodaySales, getWeekSales, getMonthSales, getSalesTotal, getItemsSold, getDailyRevenue, getTopProducts, getSalesForPeriod, getOrderStatus, updateOrderStatus, syncOrders } from '../../utils/salesStorage';
+import { getSales, getTodaySales, getWeekSales, getMonthSales, getSalesTotal, getItemsSold, getDailyRevenue, getTopProducts, getSalesForPeriod, getOrderStatus, updateOrderStatus, setOrderFlag, syncOrders } from '../../utils/salesStorage';
 import { formatKSh } from '../../utils/currency';
 import { getDocuments } from '../../firebase/firestore';
 import { useAuth } from '../../context/AuthContext';
@@ -321,7 +321,8 @@ function Dashboard() {
   };
 
   const handleBatchStatusUpdate = () => {
-    selectedOrders.forEach((id) => updateOrderStatus(id, batchStatus));
+    const refused = [...selectedOrders].filter((id) => !updateOrderStatus(id, batchStatus));
+    if (refused.length) alert(`${refused.length} cash-on-delivery order(s) skipped: the buyer hasn't confirmed yet.`);
     setSalesRefresh((n) => n + 1);
     setSelectedOrders(new Set());
   };
@@ -1025,7 +1026,9 @@ function Dashboard() {
                               className={`order-status-select order-status-select--${currentStatus}`}
                               value={currentStatus}
                               onChange={(e) => {
-                                updateOrderStatus(sale.id, Number(e.target.value));
+                                if (!updateOrderStatus(sale.id, Number(e.target.value))) {
+                                  alert('This cash-on-delivery order is awaiting the buyer’s WhatsApp confirmation. Mark it confirmed first.');
+                                }
                                 setSalesRefresh((n) => n + 1);
                               }}
                             >
@@ -1195,7 +1198,9 @@ function Dashboard() {
                                 className={`order-status-select order-status-select--${currentStatus}`}
                                 value={currentStatus}
                                 onChange={(e) => {
-                                  updateOrderStatus(sale.id, Number(e.target.value));
+                                  if (!updateOrderStatus(sale.id, Number(e.target.value))) {
+                                    alert('This cash-on-delivery order is awaiting the buyer’s WhatsApp confirmation. Mark it confirmed first.');
+                                  }
                                   setSalesRefresh((n) => n + 1);
                                 }}
                               >
@@ -1204,6 +1209,22 @@ function Dashboard() {
                                 <option value={3}>{statusLabels[3]}</option>
                                 <option value={4}>{statusLabels[4]}</option>
                               </select>
+                              {sale.paymentMethod === 'cod' && (
+                                <div style={{ display: 'flex', gap: 6, marginTop: 6, fontSize: '0.75rem' }}>
+                                  <button
+                                    type="button"
+                                    onClick={() => { setOrderFlag(sale.id, 'confirmed', !sale.confirmed); setSalesRefresh((n) => n + 1); }}
+                                  >
+                                    {sale.confirmed ? '✓ Confirmed' : 'Awaiting confirmation — mark confirmed'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => { setOrderFlag(sale.id, 'failed', !sale.failed); setSalesRefresh((n) => n + 1); }}
+                                  >
+                                    {sale.failed ? '✗ Failed delivery (undo)' : 'Mark failed delivery'}
+                                  </button>
+                                </div>
+                              )}
                             </td>
                             <td>
                               <button

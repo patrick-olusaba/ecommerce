@@ -32,37 +32,88 @@ export interface Sale {
   phone?: string;
   paymentMethod?: string;
   customer?: Customer;
+  confirmed?: boolean; // cash-on-delivery order the buyer confirmed (or a trusted buyer)
+  failed?: boolean;    // delivery attempted, buyer wasn't there
+  phoneKey?: string;   // normalized phone (2547XXXXXXXX) on cash-on-delivery orders; firestore.rules checks it
+}
+
+const MAX_FAILED = 2;
+
+export function normalizePhone(p?: string): string | null {
+  const m = p?.trim().replace(/[\s-]/g, '').match(/^(?:\+?254|0)(7\d{8})$/);
+  return m ? `254${m[1]}` : null;
+}
+
+/**
+ * cod_phones/<phone> is what checkout and firestore.rules read (shoppers can't list orders).
+ * Pulls every order from Firestore first, so counts never depend on what this admin has loaded.
+ */
+async function syncPhoneRecord(phone?: string): Promise<void> {
+  const key = normalizePhone(phone);
+  if (!key) return;
+  await syncOrders();
+  const mine = getAllSales().filter((s) => normalizePhone(s.phone) === key);
+  await setDocument('cod_phones', key, {
+    delivered: mine.filter((s) => s.status === 4).length,
+    failed: mine.filter((s) => s.failed).length,
+  });
+}
+
+export function setOrderFlag(orderId: string, flag: 'confirmed' | 'failed', value: boolean): void {
+  const sales = getAllSales();
+  const order = sales.find((s) => s.id === orderId);
+  if (!order) return;
+  order[flag] = value;
+  // A failed delivery means the goods came back: put the stock back and let the next
+  // Processing re-deduct it.
+  const restock = flag === 'failed' && value && !!order.stockDeducted;
+  if (restock) order.stockDeducted = false;
+  saveAllSales(sales);
+  if (restock) adjustStock(order.items, 1);
+  void updateDocument('orders', orderId, restock ? { [flag]: value, stockDeducted: false } : { [flag]: value })
+    .then(() => syncPhoneRecord(order.phone));
+}
+
+/** blocked: too many failed deliveries. trusted: has received an order before. new: needs confirming. */
+export async function getCodAccess(phone: string): Promise<'blocked' | 'trusted' | 'new'> {
+  const rec = await getDocument<{ delivered: number; failed: number }>('cod_phones', normalizePhone(phone) ?? phone);
+  if (!rec) return 'new';
+  if (rec.failed >= MAX_FAILED) return 'blocked';
+  return rec.delivered > 0 ? 'trusted' : 'new';
 }
 
 // Stock is taken off when the admin first confirms an order (status 2+), not at checkout:
 // shoppers can't write products under the Firestore rules. Untracked products (no stock) are skipped.
 // ponytail: checkout can still oversell between confirmations; move to a server function if that bites.
-function deductStock(items: SaleItem[]): void {
+function adjustStock(items: SaleItem[], sign: 1 | -1): void {
   const qty = new Map<number, number>();
   for (const i of items) qty.set(i.productId, (qty.get(i.productId) ?? 0) + i.quantity);
   const adminIds = new Set(getAdminProducts().map((p) => p.id));
   for (const [id, n] of qty) {
     const product = getProductById(id);
     if (product?.stock == null) continue;
-    const stock = Math.max(0, product.stock - n);
+    const stock = Math.max(0, product.stock + sign * n);
     if (adminIds.has(id)) updateAdminProduct(id, { stock });
     else void setProductOverride(id, { ...getProductOverrides()[id], price: product.price, originalPrice: product.originalPrice ?? null, stock });
   }
 }
 
-export function updateOrderStatus(orderId: string, status: number): void {
+/** False when refused: a cash-on-delivery order can't be dispatched until the buyer confirms it. */
+export function updateOrderStatus(orderId: string, status: number): boolean {
   const sales = getAllSales();
   const order = sales.find((s) => s.id === orderId);
+  if (order?.paymentMethod === 'cod' && !order.confirmed && status >= 2) return false;
   const deduct = !!order && status >= 2 && !order.stockDeducted;
   if (order) {
     order.status = status;
     if (deduct) order.stockDeducted = true;
     saveAllSales(sales);
   }
-  if (deduct) deductStock(order.items);
+  if (deduct) adjustStock(order.items, -1);
   // Mail the buyer once Firestore has the new status (the function reads it from there).
   // Best-effort: buyers with no email, or "Order Placed", simply get nothing.
   void updateDocument('orders', orderId, deduct ? { status, stockDeducted: true } : { status }).then((ok) => {
+    if (ok && order) void syncPhoneRecord(order.phone);
     if (!ok || status < 2) return;
     return fetch('/api/send-status-email', {
       method: 'POST',
@@ -70,6 +121,7 @@ export function updateOrderStatus(orderId: string, status: number): void {
       body: JSON.stringify({ orderId }),
     }).catch(() => undefined);
   });
+  return true;
 }
 
 export function getOrderStatus(order: Sale): number {
