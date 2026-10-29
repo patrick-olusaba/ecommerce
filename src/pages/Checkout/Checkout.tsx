@@ -199,6 +199,14 @@ export default function Checkout() {
         postalCode: field('postalCode'),
       },
     });
+    if (saved) {
+      // Best-effort alert to the shop owner; the server reads the order itself.
+      void fetch('/api/notify-new-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId: orderNumber }),
+      }).catch(() => undefined);
+    }
     const mailed = saved && await sendOrderEmail(buyerEmail, orderNumber, saleItems, grandTotal, shipping);
 
     setEmailSent(mailed);
